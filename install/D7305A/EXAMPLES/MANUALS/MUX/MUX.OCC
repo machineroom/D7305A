@@ -1,0 +1,26 @@
+#INCLUDE "hostio.inc" -- SP protocol declaration
+PROC mux.example(CHAN OF SP fs, ts,
+                 []INT free.memory)
+
+  #USE "hostio.lib"  -- host i/o libraries
+
+  #USE "process0"    -- user processes
+  #USE "process1"
+  #USE "process2"
+  SEQ
+    CHAN OF BOOL stop :
+    [3]CHAN OF SP from.process, to.process :
+    PAR
+      so.multiplexor(fs, ts,  -- server channels
+                     -- multiplexed channels
+                     from.process, to.process,
+                     stop)    -- termination channel
+      SEQ
+        PAR   -- run user processes in parallel
+              -- sharing the iserver
+          process0(to.process[0], from.process[0])
+          process1(to.process[1], from.process[1])
+          process2(to.process[2], from.process[2])
+        stop ! FALSE  -- terminate multiplexor
+    so.exit(fs, ts, sps.success)
+:

@@ -1,0 +1,7 @@
+mixed.tco
+cfunc.tco
+#include clibsrd.lnk
+hostio.lib
+callc.lib
+#include occama.lnk
+#mainentry mixed

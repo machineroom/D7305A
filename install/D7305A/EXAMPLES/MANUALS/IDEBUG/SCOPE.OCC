@@ -1,0 +1,45 @@
+------------------------------
+--
+--  Debugger example:  scope.occ
+--
+--  Example of occam variable scope rules.
+--
+------------------------------
+
+
+#INCLUDE "hostio.inc"
+#USE     "hostio.lib"
+
+
+PROC scope.entry (CHAN OF SP fs, ts, []INT free.memory)
+
+  PROC p ()
+    INT a :
+
+    PROC q (VAL INT b)
+      INT c :
+      SEQ
+        c := b + a
+    :
+
+    PROC r (VAL INT d)
+      INT e :
+      SEQ
+        e := 0
+        e := d / e    --  <== The debugger will locate
+    :                 --      to here after the error
+
+    INT x :
+    SEQ
+      x, a := 99, 57
+      INT y :
+      SEQ
+        y := 42
+        q (y)
+      r (x)           --  <== And backtrace to here
+  :
+
+  SEQ
+    p ()
+    so.exit (fs, ts, sps.success)
+:

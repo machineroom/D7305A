@@ -1,0 +1,172 @@
+SUBDIRECTORY oc
+
+ex0.occ		The archetypal "Hello world" program
+
+	This example be built for a T800 by writing:
+	imakef ex0.b8h
+	make -f ex0.mak
+	Or, equivalently:
+	oc ex0 -t8 -h -o ex0.t8h 
+	ilink ex0.t8h hostio.lib convert.lib -f occam8.lnk -t8 -h -o ex0.c8h 
+	icollect ex0.c8h -t  -o ex0.b8h 
+
+
+nullprog.occ	The absolutely smallest program that can be compiled
+		and executed.
+
+	This example can be compiled for any 32-bit processor by writing:
+	imakef nullprog.bah
+	make -f nullprog.mak
+	Or, equivalently:
+	oc nullprog -ta -h -o nullprog.tah
+	ilink nullprog.tah hostio.lib -f occama.lnk -ta -h -o nullprog.cah 
+	icollect nullprog.cah -t  -o nullprog.bah 
+
+
+exh1.occ	An example of simple numerical outputs for all occam types
+
+	This example can be built for a T800 by writing:
+	imakef exh1.b8h
+	make -f exh1.mak
+	Or, equivalently:
+	oc exh1 -t8 -h -o exh1.t8h 
+	ilink exh1.t8h hostio.lib convert.lib -f occam8.lnk -t8 -h -o exh1.c8h 
+	icollect exh1.c8h -t  -o exh1.b8h 
+
+
+exh2.occ	Inputs and outputs of REAL32 numbers
+
+	This example can be built for a T800 by writing:
+	imakef exh2.b8h
+	make -f exh2.mak
+	Or, equivalently:
+	oc exh2 -t8 -h -o exh2.t8h 
+	ilink exh2.t8h hostio.lib convert.lib -f occam8.lnk -t8 -h -o exh2.c8h 
+	icollect exh2.c8h -t  -o exh2.b8h 
+
+
+exh4.occ	Derived from exh2 to show how composition of parallel processes
+		may be used to divert input/output streams, etc
+
+	This example can be built for a T800 by writing:
+	imakef exh4.b8h
+	make -f exh4.mak
+	Or, equivalently:
+	oc exh4 -t8 -h -o exh4.t8h 
+	ilink exh4.t8h hostio.lib convert.lib streamio.lib -f occam8.lnk -t8 -h -o exh4.c8h
+	icollect exh4.c8h -t  -o exh4.b8h 
+
+
+exh19.occ	Exercise showing the use of most of the string handling library
+
+	This example can be built for a T800 by writing:
+	imakef exh19.b8h
+	make -f exh19.mak
+	Or, equivalently:
+	oc exh19 -t8 -h -o exh19.t8h 
+	ilink exh19.t8h hostio.lib convert.lib string.lib -f occam8.lnk -t8 -h -o exh19.c8h
+	icollect exh19.c8h -t  -o exh19.b8h 
+
+
+exh20.occ	Simple use of some of the mathematical library functions
+
+	This example can be built for a T414 by writing:
+	imakef exh20.b4h
+	make -f exh20.mak
+	Or, equivalently:
+	oc exh20 -t4 -h -o exh20.t4h 
+	ilink exh20.t4h hostio.lib convert.lib tbmaths.lib -f occama.lnk -t4 -h -o exh20.c4h
+	icollect exh20.c4h -t  -o exh20.b4h 
+
+
+exh21.occ	Demonstration of all the ways a program can communicate with
+		its supporting host using the ISERVER interface.
+		Also includes code to determine the type of transputer being
+		used.
+
+	This example can be built for a T805 by writing:
+	imakef exh20.b9h
+	make -f exh20.mak
+	Or, equivalently:
+	oc exh20 -t805 -h -o exh20.t9h 
+	ilink exh20.t9h hostio.lib convert.lib -f occam8.lnk -t805 -h -o exh20.c4h
+	icollect exh20.c9h -t  -o exh20.b9h 
+
+
+echokeys.occ	Program which uses the keyboard translation table of an ITERM
+		file to translate key sequences as is done by the 'idebug'
+		tool
+
+	This example can be built for a T800 by writing:
+	imakef echokeys.b8h
+	make -f echokeys.mak
+	Or, equivalently:
+	oc echokeys -t8 -h -o echokeys.t8h 
+	ilink echokeys.t8h hostio.lib convert.lib streamio.lib string.lib -f occam8.lnk -t8 -h -o echokeys.c8h
+	icollect echokeys.c8h -t  -o echokeys.b8h 
+
+
+wfs.occ		Program for writing a value into the whole of memory.
+		Maybe useful to clear parity on B004 and similar boards.
+
+	This example can be built for a T800 by writing:
+	imakef wfs.b8h
+	make -f wfs.mak
+	Or, equivalently:
+	oc wfs -t8 -h -o wfs.t8h 
+	ilink wfs.t8h hostio.lib convert.lib -f occam8.lnk -t8 -h -o wfs.c8h
+	icollect wfs.c8h -t  -o wfs.b8h 
+
+
+loadrxh.occ	Program demonstrating how to read a loadable program code file
+		and to execute the code therein by means of KERNEL.RUN
+codesc.occ	A procedure which may be compiled into a loadable code file
+
+	This example can be built for any 32-bit processor by writing:
+	imakef loadrxh.bah
+	make -f loadrxh.mak
+	imakef codesc.rah
+	make -f codesc.mak
+	Or, equivalently:
+	oc loadrxh -ta -h -o loadrxh.tah 
+	ilink -f loadrxh.lah -ta -h -o loadrxh.cah 
+	icollect loadrxh.cah -t  -o loadrxh.bah 
+	oc codesc -ta -h -o codesc.tah 
+	ilink -f codesc.lah -ta -h -o codesc.cah 
+	icollect codesc.cah -t -k  -o codesc.rah 
+
+
+double.occ	Coding example - double buffering
+
+	This example can be compiled for a T800 by writing:
+	imakef double.t8h
+	make -f double.mak
+	Or, equivalently:
+	oc double -t8 -h -o double.t8h 
+
+
+ringbuff.occ	Coding example - ring buffer
+
+	This example can be compiled for a T800 by writing:
+	imakef ringbuff.t8h
+	make -f ringbuff.mak
+	Or, equivalently:
+	oc ringbuff -t8 -h -o ringbuff.t8h 
+
+
+farmprot.inc	Protocol definitions for following farming example
+applic.occ	Stub for application code in a processor farm example
+farming.occ	Single processor analogue showing processor farm style of
+		use of pipelined processes. This may be trivially extended to
+		an arbitrary hardware network for examples such as the
+		Mandelbrot Set
+
+	This example can be compiled for any 32-bit processor by writing:
+	imakef farming.bah
+	make -f farming.mak
+	Or, equivalently:
+	oc applic -ta -h -o applic.tah 
+	oc farming -ta -h -o farming.tah 
+	ilink farming.tah applic.tah snglmath.lib streamio.lib hostio.lib convert.lib -f occama.lnk -ta -h -o farming.cah 
+	icollect farming.cah -t  -o farming.bah 
+

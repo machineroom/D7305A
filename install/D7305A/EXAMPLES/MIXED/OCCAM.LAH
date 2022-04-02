@@ -1,0 +1,9 @@
+--
+-- linker command file "occam.lah"
+--
+occam.tah
+hello.tax
+hostio.lib
+convert.lib
+#INCLUDE clibs.lnk
+#INCLUDE occama.lnk

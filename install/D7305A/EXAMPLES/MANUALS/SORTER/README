@@ -1,0 +1,120 @@
+SUBDIRECTORY sorter
+
+The examples in this subdirectory are based on the pipeline sorter program
+originally introduced in "A tutorial example to occam programming" by
+Pountain and May. The program is used in the occam toolset user manual 
+to demonstrate transputer programming and the configuration of transputer
+networks. 
+
+Worked examples based on the program can be found in chapters entitled 
+`Programming Single Transputers' and `Configuring Transputer Networks'. 
+The examples require the following files from this directory:
+
+inout.occ	The user interface process
+element.occ	The pipeline sorting element
+sorter.occ	A single processor main program calling the 2 modules above
+sorter.pgm	Configuration file for the single processor example
+sortconf.pgm	Configuration file for the multi-processor example
+sortmak.pgm	Configuration file for multi-processor example using imakef
+sortsoft.inc	Software description for multi-processor examples
+sorthdr.inc	A shared file of constant and protocol definitions
+
+Instructions for building and running the programs can be found here and
+in the  relevant chapters. The examples are written and built for the
+IMS T425 transputer.
+
+sorter.pgm	Configuration for a single processor
+
+	This example may be built by writing:
+	oc element -t425
+	oc inout -t425
+	oc sorter -t425
+	ilink sorter.tco inout.tco element.tco hostio.lib -f occama.lnk -t425
+	occonf sorter.pgm
+	icollect sorter.cfb
+
+	This example may also be specially built without the configurer
+	to run on a single processor, as follows:
+	oc element -t425
+	oc inout -t425
+	oc sorter -t425
+	ilink sorter.tco inout.tco element.tco hostio.lib -f occama.lnk -t425
+	icollect sorter.lku -t
+
+
+sortconf.pgm	Configuration for multiple processors (manual build)
+
+	This example may be built by writing:
+	oc element -t425
+	oc inout -t425
+	ilink element.tco -f occama.lnk -t425
+	ilink inout.tco hostio.lib -f occama.lnk -t425
+	occonf sortconf
+	icollect sortconf.cfb
+
+
+sortmak.pgm	Configuration for multiple processors (using imakef)
+
+	This is identical to 'sortconf.pgm', but uses the file name suffix
+	conventions which are required by imakef.
+	This example may be built by writing:
+	imakef sortmak.btl
+	make -f sortmak.mak
+
+
+A further series of configuration examples is provided in the directory for
+the interested user. These examples are not described in the user manual.
+Instructions are given which will build the programs for any 32-bit transputer 
+(class TA):
+ 
+
+sortb4.pgm	Configuration for a single processor on a T4 or similar
+
+	This example may be built by writing:
+	oc inout.occ -ta -h -o inout.tah
+	oc element.occ -ta -h -o element.tah
+	ilink inout.tah hostio.lib -f occama.lnk -ta -h -o inout.lku
+	ilink element.tah -f occama.lnk -ta -h -o element.lku
+	occonf sortb4.pgm -o sortb4.cfb
+	icollect sortb4.cfb -o sortb4.btl
+
+
+sortb3.pgm	Configuration for four T4 processors on a B003 (manual build)
+
+	This example may be built by writing:
+	oc inout.occ -ta -h -o inout.tah
+	oc element.occ -ta -h -o element.tah
+	ilink inout.tah hostio.lib -f occama.lnk -ta -h -o inout.lku
+	ilink element.tah -f occama.lnk -ta -h -o element.lku
+	occonf sortb3.pgm -o sortb3.cfb
+	icollect sortb3.cfb -o sortb3.btl
+
+
+sortb3c.pgm	Configuration for four T4 processors on a B003 (imakef version)
+
+	This example may be built by writing:
+	imakef sortb3c.btl
+	make -f sortb3c.mak
+
+
+sortb4b3.pgm	Configuration for 5 processors on a B004 and a B003 (for imakef)
+
+	This example may be built by writing:
+	imakef sortb4b3.btl
+	make -f sortb4b3.mak
+
+
+sortnb3.pgm	Configuration for two or more B003s (for imakef)
+
+	This example may be built by writing:
+	imakef sortnb3.btl
+	make -f sortnb3.mak
+
+
+The principal point made by these examples is the relatively simple changes
+that are needed to run suitably structured programs on a wide variety of
+different hardware networks on to which a linear pipeline of processes may
+be mapped. The use of imakef (and the corresponding need for different file
+naming conventions) is also demonstrated. Users with alternative
+multi-processor configurations (e.g B008 or other motherboard plus TRAMs)
+may easily adapt the configurations to suit their hardware.

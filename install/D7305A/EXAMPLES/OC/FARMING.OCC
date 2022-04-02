@@ -1,0 +1,577 @@
+----{{{COMMENT COMMENT -- NOTES ON THIS PIPELINE FARMING EXAMPLE
+----{{{  NOTES ON THIS PIPELINE FARMING EXAMPLE
+--This example shows how to construct a program to farm out work to a
+--pipeline of processes.
+--
+--The work to be farmed is generated in the procedure farm.driver, and results
+--to be displayed are returned to this procedure from the pipeline.
+--
+--The program terminates properly on completion of all work.
+--
+--The program is suitable for mapping onto any number of processors connected
+--in a linear pipe. Each such processor may hold one or more copies of the
+--pipeline process. The farm driver itself may be split into two or three
+--processes which may be run on separate transputers.
+----}}}
+----}}}
+#INCLUDE "hostio.inc" --
+PROC farming.example (CHAN OF SP from.isv, to.isv, []INT freespace)
+  #INCLUDE "streamio.inc"
+  #USE "snglmath.lib"
+  #USE "streamio.lib"
+  #USE "hostio.lib"
+
+  #INCLUDE "farmprot.inc" --
+  --{{{  constants
+  VAL pipe.length IS 5:
+  VAL no.of.processors IS pipe.length:
+  --}}}
+  --{{{  Channels of the pipe
+  [pipe.length]CHAN OF WORKPACKET down :
+  [SIZE down]CHAN OF RESULTPACKET up :
+  --}}}
+  --{{{  farm.driver
+  PROC farm.driver (VAL INT number.of.processes,
+		    CHAN OF SS screen, CHAN OF RESULTPACKET from.pipe,
+				       CHAN OF WORKPACKET to.pipe)
+    -- The farm.driver sends out a sequence of work packets to the pipe,
+    -- taking care never to send out more than the capacity of the pipe
+    -- (which in this case is 2*no.of.processes).
+    -- Each work packet leads to the return of one result packet.
+  
+    -- The code which generates work and the code which displays results
+    -- are internal parallel processes inside this procedure.
+  
+    --{{{  protocols
+    --{{{  Control to load bal     -- Coordinate data sent to load bal from controller.
+    PROTOCOL CONTROLTOLOADBAL
+      CASE
+	loadbalpacket;INT;INT    -- x,y(screen)
+	loadbalinit
+	end.of.screen
+	terminate.2
+    :
+    --}}}
+    --{{{  Load balance            -- Indicates to loadbal. when proc. complete.
+    PROTOCOL LOADBALANCE
+      CASE
+	processing.complete
+	terminate.5
+    :
+    --}}}
+    --{{{  Switch to user          -- Indicates to user interf when scrn complete.
+    PROTOCOL SWITCHTOUSER
+      CASE
+	terminate.6
+    :
+    --}}}
+    --{{{  To Gdriver              -- User to graphics driver
+    PROTOCOL TOGDRIVER
+      CASE
+	terminate.7
+    :
+    --}}}
+    --}}}
+    --{{{  user/controller     Generates work packets
+    PROC user.controller (CHAN OF TOGDRIVER user.to.graphics,
+			  CHAN OF SWITCHTOUSER from.load.bal,
+			  CHAN OF CONTROLTOLOADBAL from.controller)
+      --{{{  image and random seeds
+      VAL width IS 29:
+      VAL height IS 8:
+      VAL cells IS width*height:
+      [height][width]BOOL screenimage:
+      INT pixcount:
+      TIMER seeder:
+      INT seed:
+      INT32 seed32:
+      --}}}
+      SEQ
+	--{{{  set screenimage to zeros
+	SEQ x = 0 FOR width
+	  screenimage[0][x] := FALSE
+	SEQ y = 1 FOR height - 1
+	  screenimage[y] := screenimage[y-1]
+	--}}}
+	pixcount := 0
+	from.controller ! loadbalinit
+	--{{{  generate random screen cells
+	seeder ? seed
+	seed32 := INT32 seed
+	WHILE pixcount < cells
+	  INT x, y:
+	  REAL32 rrand:
+	  SEQ
+	    rrand, seed32 := RAN (seed32)
+	    x := ((INT seed32)>>1) \ width
+	    rrand, seed32 := RAN (seed32)
+	    y := ((INT seed32)>>1) \ height
+	    IF
+	      screenimage[y][x]
+		SKIP
+	      TRUE
+		SEQ
+		  screenimage[y][x] := TRUE
+		  from.controller ! loadbalpacket;x;y
+		  pixcount := pixcount + 1
+	--}}}
+	from.controller ! terminate.2
+    
+	--{{{  wait for terminate signal on from.load.bal
+	from.load.bal ? CASE terminate.6
+	--}}}
+	user.to.graphics ! terminate.7
+    :
+    --}}}
+    --{{{  LoadBalance.        Controls number of packets sent to the farm
+    PROC load.balance (VAL INT number.of.processes,
+		       CHAN OF CONTROLTOLOADBAL to.load.bal,
+		       CHAN OF WORKPACKET to.pipe,
+		       CHAN OF LOADBALANCE to.update,
+		       CHAN OF SWITCHTOUSER to.user.interf)
+    
+      --{{{  Variables.
+      BOOL running:
+      INT count:
+      INT x,y:
+      --}}}
+    
+      SEQ
+	count:=0
+	running:=TRUE
+	WHILE running
+	  SEQ
+	    ALT
+	      (count<(number.of.processes*2)) & to.load.bal ? CASE
+		loadbalpacket;x;y
+		  --{{{  Send it to the pipe, increment count.
+		  SEQ
+		    to.pipe ! pipepacket;x;y
+		    count:=count+1
+		  --}}}
+		loadbalinit
+		  --{{{  Send initialise to the pipe.
+		  to.pipe ! init
+		  --}}}
+		terminate.2
+		  --{{{  Send terminate to the pipe
+		  to.pipe ! terminate.3
+		  --}}}
+	      to.update ? CASE
+		processing.complete
+		  --{{{  Decrement count
+		  count:=count-1
+		  --}}}
+		terminate.5
+		  --{{{  terminate user and exit loop
+		  SEQ
+		    to.user.interf ! terminate.6
+		    running:=FALSE
+		  --}}}
+    :
+    --}}}
+    --{{{  Graphics driver.    Receives result packets and displays results
+    PROC graphics.driver (CHAN OF SS screen,
+			  CHAN OF TOGDRIVER user.to.graphics,
+			  CHAN OF RESULTPACKET from.pipe,
+			  CHAN OF LOADBALANCE from.g.driver)
+    
+      --{{{  Variables.
+      BOOL running:
+      INT x,y:
+      BYTE colour:
+      INT pixcount:
+      --}}}
+    
+      SEQ
+	pixcount := 0
+	running:=TRUE
+	WHILE running
+	  PRI ALT
+	    from.pipe ? CASE
+	      result.data;x;y;colour
+		--{{{  send to screen
+		SEQ
+		  from.g.driver ! processing.complete
+		  ss.goto.xy (screen, x, y)
+		  ss.write.char (screen, colour)
+		  pixcount := pixcount + 1
+		  ss.goto.xy (screen, 0, 24)
+		  ss.write.int (screen, pixcount, 4)
+		--}}}
+	      terminate.4
+		from.g.driver ! terminate.5
+	    user.to.graphics ? CASE terminate.7
+	      --{{{  Handle commands from the terminal handler.
+	      running := FALSE
+	      --}}}
+	ss.write.endstream (screen)
+    :
+    --}}}
+    --{{{  local channels
+    CHAN OF CONTROLTOLOADBAL to.load.bal:
+    CHAN OF SWITCHTOUSER from.load.bal:
+    CHAN OF TOGDRIVER user.to.graphics:
+    CHAN OF LOADBALANCE graphics.to.loadbal:
+    --}}}
+    PAR
+      user.controller (user.to.graphics, from.load.bal, to.load.bal)
+      load.balance    (number.of.processes, to.load.bal, to.pipe,
+		       graphics.to.loadbal, from.load.bal)
+      graphics.driver (screen, user.to.graphics, from.pipe, graphics.to.loadbal)
+  :
+  --}}}
+
+  #USE "applic.tah"
+  --{{{  PipeUnit        Replicated for all except final process of pipe.
+  PROC pipeunit (VAL INT process.no,
+		 CHAN OF WORKPACKET down.pipe.top,down.pipe.bot,
+		 CHAN OF RESULTPACKET up.pipe.bot,up.pipe.top)
+  
+    --{{{  Channels.
+    CHAN OF WORKPACKET to.app:
+    CHAN OF RESULTPACKET from.app:
+    CHAN OF PACKETCOMPLETE back.to.buf:
+    --}}}
+    --{{{  Constants
+    VAL INT c.terminate IS -9999:
+    --}}}
+  
+    --{{{  Buffer down.
+    PROC buffer.down (CHAN OF WORKPACKET down.pipe.top,down.pipe.bot,to.app,
+		      CHAN OF PACKETCOMPLETE back.to.buf)
+    
+      --{{{  Variables.
+      BOOL running:
+      BOOL buffered:
+      INT x,y:
+      INT x.buf,y.buf:
+      --}}}
+    
+      SEQ
+	buffered:=FALSE
+	running:=TRUE
+	WHILE running
+	  ALT
+	    --{{{  give a work packet to application
+	    buffered & back.to.buf ? CASE
+	      packet.processed
+		--{{{  If packet processed, send contents of buffer.
+		SEQ
+		  to.app ! pipepacket;x.buf;y.buf
+		  buffered := FALSE
+		--}}}
+	    --}}}
+	    --{{{  read next order from above
+	    down.pipe.top ? CASE
+	      pipepacket;x;y
+		--{{{  If buffer free pass data to it-else pass it down the pipe.
+		IF
+		  buffered=FALSE
+		    SEQ
+		      x.buf:=x
+		      y.buf:=y
+		      buffered:=TRUE
+		  TRUE
+		    down.pipe.bot ! pipepacket;x;y
+		--}}}
+	      init
+		--{{{  Pass on initialise packet.
+		SEQ
+		  --{{{  Free the application by reading the channel back.to.buf.
+		  back.to.buf ? CASE
+		    packet.processed
+		      SKIP
+		  --}}}
+		  to.app ! init
+		  down.pipe.bot ! init
+		--}}}
+	      terminate.3
+		running := FALSE
+	    --}}}
+	--{{{  Kill process and propagate termination down pipe
+	SEQ
+	  back.to.buf ? CASE packet.processed
+	  IF
+	    buffered
+	      --{{{  send contents of buffer and await completion
+	      SEQ
+		to.app ! pipepacket;x.buf;y.buf
+		buffered := FALSE
+		back.to.buf ? CASE packet.processed
+	      --}}}
+	    TRUE
+	      SKIP
+	  to.app ! terminate.3
+	  down.pipe.bot ! terminate.3
+	--}}}
+    :
+    --}}}
+    --{{{  Buffer up.
+    PROC buffer.up (CHAN OF RESULTPACKET up.pipe.bot,up.pipe.top,
+		    CHAN OF RESULTPACKET from.app)
+    
+      --{{{  Variables.
+      BOOL running:
+      BOOL working:
+      INT x,y:
+      BYTE colour:
+      --}}}
+    
+      SEQ
+	running:=TRUE
+	working:=TRUE
+	WHILE working OR running
+	  ALT
+	    --{{{  from the application
+	    from.app ? CASE
+	      terminate.4
+		working := FALSE
+	      result.data;x;y;colour
+		up.pipe.top ! result.data;x;y;colour
+	    --}}}
+	    --{{{  from the pipe
+	    up.pipe.bot ? CASE
+	      terminate.4
+		running:=FALSE
+	      result.data;x;y;colour
+		up.pipe.top ! result.data;x;y;colour
+	    --}}}
+	up.pipe.top ! terminate.4
+    :
+    --}}}
+  
+    PRI PAR
+      PAR
+	buffer.up   (up.pipe.bot, up.pipe.top, from.app)
+	buffer.down (down.pipe.top, down.pipe.bot, to.app, back.to.buf)
+      application (process.no, to.app, from.app, back.to.buf)
+  :
+  --}}}
+  --{{{  PipeEnd         Final process.
+  PROC pipeend (VAL INT process.no,
+		CHAN OF WORKPACKET down.pipe.top,
+		CHAN OF RESULTPACKET up.pipe.top)
+  
+    --{{{  Channels.
+    CHAN OF WORKPACKET to.app:
+    CHAN OF RESULTPACKET from.app:
+    CHAN OF WORKPACKET round.the.end:
+    CHAN OF PACKETCOMPLETE back.to.buf:
+    --}}}
+    --{{{  Constants
+    VAL INT c.terminate IS -9999:
+    --}}}
+  
+    --{{{  Buffer down.
+    PROC buffer.down (CHAN OF WORKPACKET down.pipe.top,to.app,
+		      CHAN OF WORKPACKET to.buffer.up,
+		      CHAN OF PACKETCOMPLETE back.to.buf)
+    
+      --{{{  Variables.
+      BOOL running:
+      BOOL buffered:
+      INT x,y:
+      INT x.buf,y.buf:
+      --}}}
+    
+      SEQ
+	buffered:=FALSE
+	running:=TRUE
+	WHILE running
+	  ALT
+	    --{{{  give a work packet to application
+	    buffered & back.to.buf ? CASE
+	      packet.processed
+		--{{{  If packet processed, send contents of buffer.
+		SEQ
+		  to.app ! pipepacket;x.buf;y.buf
+		  buffered := FALSE
+		--}}}
+	    --}}}
+	    --{{{  read next order from above
+	    down.pipe.top ? CASE
+	      pipepacket;x;y
+		--{{{  If buffer free pass data to it-else do nothing
+		IF
+		  buffered=FALSE
+		    SEQ
+		      x.buf:=x
+		      y.buf:=y
+		      buffered:=TRUE
+		  TRUE
+		    SKIP
+		--}}}
+	      init
+		--{{{  Pass on initialise packet.
+		SEQ
+		  --{{{  Free the application by reading the channel back.to.buf.
+		  back.to.buf ? CASE
+		    packet.processed
+		      SKIP
+		  --}}}
+		  to.app ! init
+		--}}}
+	      terminate.3
+		running:=FALSE
+	    --}}}
+	--{{{  Kill process and propagate termination round the end
+	SEQ
+	  back.to.buf ? CASE packet.processed
+	  IF
+	    buffered
+	      --{{{  send contents of buffer and await completion
+	      SEQ
+		to.app ! pipepacket;x.buf;y.buf
+		buffered := FALSE
+		back.to.buf ? CASE packet.processed
+	      --}}}
+	    TRUE
+	      SKIP
+	  to.app ! terminate.3
+	  to.buffer.up ! terminate.3
+	--}}}
+    :
+    --}}}
+    --{{{  Buffer up.
+    PROC buffer.up (CHAN OF RESULTPACKET up.pipe.top,
+		    CHAN OF WORKPACKET from.buffer.down,
+		    CHAN OF RESULTPACKET from.app)
+    
+      --{{{  Variables.
+      BOOL running:
+      BOOL working:
+      INT x,y:
+      BYTE colour:
+      --}}}
+    
+      SEQ
+	running:=TRUE
+	working:=TRUE
+	WHILE running OR working
+	  ALT
+	    --{{{  from the application
+	    from.app ? CASE
+	      terminate.4
+		working := FALSE
+	      result.data;x;y;colour
+		up.pipe.top ! result.data;x;y;colour
+	    --}}}
+	    --{{{  from buffer.down
+	    from.buffer.down ? CASE
+	      terminate.3
+		running:=FALSE
+	    --}}}
+	up.pipe.top ! terminate.4
+    :
+    --}}}
+    --{{{  Application.
+    PROC application (CHAN OF WORKPACKET to.app,
+		      CHAN OF RESULTPACKET from.app,
+		      CHAN OF PACKETCOMPLETE back.to.buf)
+    
+      --{{{  function posch
+      BYTE FUNCTION posch (VAL INT y,x)
+	INT res:
+	VALOF
+	  ----{{{COMMENT COMMENT char depends on x, y
+	  ----{{{  char depends on x, y
+	  --INT basech:
+	  --SEQ
+	    --basech := (INT 'A') + y
+	    --res := basech + x
+	    --IF
+	      --res > 126
+		--res := res - (126 - 33)
+	      --TRUE
+		--SKIP
+	  ----}}}
+	  ----}}}
+	  --{{{  char depends on process.no
+	  res := (INT'0') + process.no
+	  --}}}
+	  RESULT (BYTE res)
+      :
+      --}}}
+      --{{{  Variables.
+      BYTE colour:
+      INT xpos,ypos:
+      BOOL running:
+      TIMER time:
+      INT now:
+      --}}}
+    
+      SEQ
+	running:=TRUE
+	back.to.buf ! packet.processed
+	WHILE running
+	  to.app ? CASE
+	    pipepacket;xpos;ypos
+	      --{{{  Process packet.
+	      SEQ
+		colour := posch(ypos,xpos)
+		--{{{  wait about 1/10 sec
+		time ? now
+		time ? AFTER now PLUS 1500
+		--}}}
+		from.app ! result.data;xpos;ypos;colour
+		back.to.buf ! packet.processed
+	      --}}}
+	    init
+	      back.to.buf ! packet.processed
+	    terminate.3
+	      --{{{  send terminate.4 and die.
+	      SEQ
+		from.app ! terminate.4
+		running:=FALSE
+	      --}}}
+    :
+    --}}}
+  
+    PRI PAR
+      PAR
+	buffer.down (down.pipe.top, to.app, round.the.end, back.to.buf)
+	buffer.up   (up.pipe.top, round.the.end, from.app)
+      application (to.app, from.app, back.to.buf)
+  :
+  --}}}
+
+  ----{{{COMMENT COMMENT note on termination
+  ----{{{  note on termination
+  --Termination is initiated by user.controller which sends terminate.2 to
+  --LoadBalance;
+  --LoadBalance sends terminate.3 into the pipe;
+  --Each buffer.down process in the pipe passes any buffered work followed by
+  --terminate.3 to its application process and terminate.3 down the pipe;
+  --the application processes terminate after passing terminate 4 on;
+  --the buffer.down processes terminate after passing on terminate.2;
+  --buffer.down in PipeEnd passes terminate.2 to its application process and
+  --to its buffer.up;
+  --terminate.4 is then propagated up the buffer.up processes which each terminate
+  --after receiving it on both inputs and passing the message on;
+  --at the top of the pipe graphics.driver passes terminate.5 to LoadBalance;
+  --LoadBalance passes terminate.6 to user.controller and terminates;
+  --user.controller passes terminate.7 to the graphics.driver;
+  --they both terminate.
+  ----}}}
+  ----}}}
+
+  SEQ
+    --{{{  Call driver and farm in parallel
+    CHAN OF SS iscreen:
+    PAR
+      so.scrstream.to.ANSI (from.isv, to.isv, iscreen)
+      farm.driver (no.of.processors, iscreen, up[0], down[0])
+      PAR i=0 FOR (SIZE down) - 1
+	pipeunit (i, down[i], down[i+1], up[i+1], up[i])
+      VAL lastchan IS (SIZE down) - 1:
+      pipeend (lastchan, down[lastchan], up[lastchan])
+    --}}}
+    --{{{  finish
+    BYTE any, res:
+    SEQ
+      so.write.string (from.isv, to.isv, "  -  Any key to continue ")
+      so.getkey (from.isv, to.isv, any, res)
+      so.exit (from.isv, to.isv, 0(INT32))
+    --}}}
+:

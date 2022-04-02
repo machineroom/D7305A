@@ -1,0 +1,31 @@
+#INCLUDE "hostio.inc" --
+
+PROC HostPass (CHAN OF SP HostInput, HostOutput, []CHAN OF INT32 Input, Output)
+
+  #USE "hostio.lib"
+
+  IF
+    ((SIZE Input) = (SIZE Output))
+      INT32 InputValue :
+      SEQ
+	so.write.string.nl (HostInput, HostOutput, "Starting: ")
+	InputValue := 0 (INT32)
+	WHILE TRUE
+	  INT32 OutputValue :
+	  SEQ
+	    OutputValue := InputValue + (1 (INT32))
+	    PAR
+	      SEQ Index = 0 FOR SIZE Output
+		Output[Index] ! OutputValue
+
+	      SEQ Index = 0 FOR SIZE Input
+		INT32 Value :
+		ALT Index = 0 FOR SIZE Input
+		  Input[Index] ? Value
+		    InputValue := InputValue + Value
+
+	    so.write.int(HostInput, HostOutput, INT InputValue, 0)
+	    so.write.nl(HostInput, HostOutput)
+	so.write.string.nl (HostInput, HostOutput, "Finishing")
+	so.exit (HostInput, HostOutput, 0(INT32))
+:

@@ -1,0 +1,66 @@
+--To run this program connect any number of identical 
+--transputers in a pipeline: connect link 1 of processor 0
+--to link 2 of processor 1 and so on; complete the pipeline 
+--by connecting first and last via their link 3s; 
+--finally connect processor 0 to the host.
+ 
+--max no of chars on a line
+VAL string.length IS 80: 
+--include useful definitions e.g. K=Kilo, M=Mega
+#INCLUDE "occonf.inc"
+--change the following to suit your network
+VAL number.of.transputers IS 4:
+--declare processors as an array
+[number.of.transputers]NODE pipeline.t:
+ARC Hostlink:
+
+--hardware description
+NETWORK
+  DO
+    DO i = 0 FOR number.of.transputers
+      --change the following to suit your transputer type
+      SET pipeline.t[i] (type, memsize := "T425", 1*M)
+      
+    DO i = 0 FOR number.of.transputers - 1 
+      CONNECT pipeline.t[i][link][2] TO pipeline.t[i+1][link][1]
+
+    CONNECT pipeline.t[number.of.transputers-1][link][3] TO
+            pipeline.t[0][link][3]
+
+    CONNECT pipeline.t[0][link][1] TO HOST WITH Hostlink
+:
+
+--mapping
+VAL number.of.elements IS string.length:
+--number.of.elements/number.of.transputers must be >= 2
+VAL elements.per.transputer IS number.of.elements/number.of.transputers:
+VAL remaining.elements IS number.of.elements\number.of.transputers:
+VAL elements.on.root IS elements.per.transputer + remaining.elements: 
+NODE inout.p:
+[number.of.elements]NODE pipe.element.p:
+
+MAPPING
+  DO
+    MAP inout.p ONTO pipeline.t[0] PRI HIGH
+
+    DO i = 0 FOR elements.on.root-1
+      MAP pipe.element.p[i] ONTO pipeline.t[0] PRI LOW
+
+    MAP pipe.element.p[elements.on.root-1] ONTO pipeline.t[0] PRI HIGH
+
+    DO j = 0 FOR number.of.transputers - 1
+      VAL first.element.here IS elements.on.root +(j*elements.per.transputer):
+      VAL last.element.here IS first.element.here +(elements.per.transputer-1):
+      DO
+        MAP pipe.element.p[first.element.here] ONTO pipeline.t[j+1] PRI HIGH
+        DO i = first.element.here + 1 FOR elements.per.transputer - 2
+	  MAP pipe.element.p[i] ONTO pipeline.t[j+1] PRI LOW
+        MAP pipe.element.p[last.element.here] ONTO pipeline.t[j+1] PRI HIGH
+:
+
+--software description
+#INCLUDE "hostio.inc"
+#INCLUDE "sorthdr.inc"
+#USE "inout.lku"
+#USE "element.lku"
+#INCLUDE "sortsoft.inc" 

@@ -1,0 +1,40 @@
+--{{{  kilo, mega
+VAL K IS 1024:
+VAL M IS K*K:
+--}}}
+--{{{  HIGH, LOW
+VAL HIGH IS 0:
+VAL LOW IS 1:
+--}}}
+--{{{  problem size
+VAL string.length IS 80:
+VAL n IS 2:  -- number of B003s for a real test
+--}}}
+--{{{  hardware description - one processor on a B004 or similar
+--{{{  Network B004
+NODE MyB004:
+ARC Hostlink:
+NETWORK
+  DO
+    SET MyB004 (type, memsize := "T425", 2*M)
+    CONNECT MyB004[link][0] TO HOST WITH Hostlink
+:
+--}}}
+--{{{  Mapping
+NODE inout.p:
+[string.length]NODE pipe.element.p:
+MAPPING
+  DO
+    MAP inout.p ONTO MyB004
+    DO i = 0 FOR string.length
+      MAP pipe.element.p[i] ONTO MyB004
+:
+--}}}
+--}}}
+--{{{  Code
+#INCLUDE "hostio.inc" --
+#INCLUDE "sorthdr.inc" --
+#USE "inout.lku"
+#USE "element.lku"
+--}}}
+#INCLUDE "sortsoft.inc" -- software description - for any network

@@ -1,0 +1,80 @@
+VAL hello.mess0 IS "This is the first processor on the B003":
+VAL goodbye.mess0 IS "This is the first processor closing down":
+PROC hello0(CHAN OF INT to2, to3, to4, from2, from3, from4, in0, out0)
+  VAL link0out IS 0 :
+  VAL link0in IS 4 :
+  INT ch:
+  INT req:
+  PROC copy.message(CHAN OF INT fromchan)
+    SEQ
+      WHILE ch <> (INT '*n')
+        SEQ
+	  out0 ! ch
+	  fromchan ? ch
+      out0 ! INT '*n'
+  :
+  --{{{  writes
+  PROC writes(VAL[]BYTE str)
+    VAL len IS SIZE str:
+    SEQ i = 0 FOR len
+      out0 ! INT str[i]
+  :
+  --}}}  
+  BOOL going:
+  SEQ
+    in0 ? ch
+    writes("Type a digit 1, 2, 3, 4, and processor will name itself, 0 stops")
+    out0 ! INT '*n'
+    going := TRUE
+    WHILE going
+      SEQ
+        in0 ? req
+        VAL req IS req - (INT '0'):
+        VAL any IS 0:
+        --{{{  send appropriate message
+        IF
+	  req = 1
+	    SEQ
+	      writes(hello.mess0)
+	      out0 ! INT '*n'
+	  --{{{  2,3,4
+	  req = 2
+	    SEQ
+	      to2 ! req
+	      writes("polling 2 *n")
+	      from2 ? ch
+	      copy.message(from2)
+	  req = 3
+	    SEQ
+	      to3 ! req
+	      writes("polling 3 *n")
+	      from3 ? ch
+	      copy.message(from3)
+	  req = 4
+	    SEQ
+	      to4 ! req
+	      writes("polling 4 *n")
+	      from4 ? ch
+	      copy.message(from4)
+	  --}}}  
+	  req = 0
+	    SEQ
+	      --{{{  finish 2,3,4
+	      to2 ! 0
+	      to3 ! 0
+	      to4 ! 0
+	      from2 ? ch
+	      copy.message(from2)
+	      from3 ? ch
+	      copy.message(from3)
+	      from4 ? ch
+	      copy.message(from4)
+	      --}}}  
+	      writes(goodbye.mess0)
+	      out0 ! INT '*n'
+	      going := FALSE
+	  TRUE
+	    SKIP
+        --}}}  
+
+:

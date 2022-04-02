@@ -1,0 +1,49 @@
+#INCLUDE "hostio.inc" --
+#USE "hostio.lib"
+#USE "tbmaths.lib"
+PROC exh20 (CHAN OF SP from.isv, to.isv, []INT freespace)
+  SEQ
+    --{{{  ATAN and SIN test for REAL32
+    REAL32 x, y, pi:
+    SEQ
+      so.write.nl(from.isv, to.isv)
+      x := ATAN (1.0(REAL32))
+      pi := x * 4.0(REAL32)
+      so.write.string(from.isv, to.isv, "pi is 4**arctan(1) = ")
+      so.write.real32(from.isv, to.isv, pi, 0, 0)
+      so.write.nl(from.isv, to.isv)
+      y := 2.0(REAL32) * SIN (pi/3.0(REAL32))
+      so.write.string(from.isv, to.isv, "root 3 is 2**sin(pi/3) = ")
+      so.write.real32(from.isv, to.isv, y, 0, 0)
+      so.write.nl(from.isv, to.isv)
+      y := SQRT (3.0(REAL32))
+      so.write.string(from.isv, to.isv, "root 3 is sqrt(3) = ")
+      so.write.real32(from.isv, to.isv, y, 0, 0)
+      so.write.nl(from.isv, to.isv)
+      so.write.string(from.isv, to.isv, "Type a key to continue")
+      BYTE key, bres:
+      so.getkey(from.isv, to.isv, key, bres)
+    --}}}
+    --{{{  ATAN and SIN test for REAL64
+    REAL64 x, y, pi:
+    SEQ
+      so.write.nl(from.isv, to.isv)
+      x := DATAN (1.0(REAL64))
+      pi := x * 4.0(REAL64)
+      so.write.string(from.isv, to.isv, "pi is 4**arctan(1) = ")
+      so.write.real64(from.isv, to.isv, pi, 0, 0)
+      so.write.nl(from.isv, to.isv)
+      y := 2.0(REAL64) * DSIN (pi/3.0(REAL64))
+      so.write.string(from.isv, to.isv, "root 3 is 2**sin(pi/3) = ")
+      so.write.real64(from.isv, to.isv, y, 0, 0)
+      so.write.nl(from.isv, to.isv)
+      y := DSQRT (3.0(REAL64))
+      so.write.string(from.isv, to.isv, "root 3 is sqrt(3) = ")
+      so.write.real64(from.isv, to.isv, y, 0, 0)
+      so.write.nl(from.isv, to.isv)
+      so.write.string(from.isv, to.isv, "Type a key to continue")
+      BYTE key, bres:
+      so.getkey(from.isv, to.isv, key, bres)
+    --}}}
+    so.exit (from.isv, to.isv, sps.success)
+:

@@ -1,0 +1,9 @@
+--
+-- linker command file "master.lah"
+--
+master.tah
+slave.tax
+hostio.lib
+convert.lib
+#INCLUDE clibsrd.lnk
+#INCLUDE occama.lnk

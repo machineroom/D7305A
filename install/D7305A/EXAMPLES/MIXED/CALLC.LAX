@@ -1,0 +1,10 @@
+--
+-- linker command file "callc.lax"
+--
+callc.tax
+hostio.lib
+convert.lib
+callc.lib
+#INCLUDE occama.lnk
+csubfunc.tax
+#INCLUDE clibsrd.lnk

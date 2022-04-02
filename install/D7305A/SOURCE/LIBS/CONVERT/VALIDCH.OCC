@@ -1,0 +1,55 @@
+-- (c) Copyright INMOS Limited 1988, 1993
+
+--{{{  ValidDigit
+INT, BOOL INLINE FUNCTION ValidDigit (VAL BYTE ch)
+
+  -- Purpose:  To convert digit as character (ASCII
+  --           value in BYTE) to digit as decimal value.
+  -- In:       ch - the character to be converted
+  -- Returned: digit - if valid is TRUE, the decimal value
+  --           of ch; undefined otherwise
+  -- Returned: valid - TRUE if ch was a valid value for
+  --           conversion; FALSE otherwise
+
+  INT digit :
+  BOOL valid :
+  VALOF
+    IF
+      ('0' <= ch) AND (ch <= '9')
+        SEQ
+          digit := ((INT ch) - (INT '0'))
+          valid := TRUE
+      TRUE
+        valid := FALSE
+    RESULT digit, valid
+:
+--}}}
+
+--{{{  ValidHexDigit
+INT, BOOL INLINE FUNCTION ValidHexDigit (VAL BYTE ch)
+
+  -- Purpose:  To convert hex digit as character (ASCII
+  --           value in BYTE) to digit as decimal value.
+  -- In:       ch - the character to be converted
+  -- Returned: digit - if valid is TRUE, the decimal value
+  --           of ch; undefined otherwise
+  -- Returned: valid - TRUE if ch was a valid value for
+  --           conversion; FALSE otherwise
+
+  INT digit :
+  BOOL valid :
+  VALOF
+    IF
+      ('0' <= ch) AND (ch <= '9')
+        SEQ
+          digit := ((INT ch) - (INT '0'))
+          valid := TRUE
+      ('A' <= ch) AND (ch <= 'F')
+        SEQ
+          digit := ((INT ch) - ((INT 'A') - 10))
+          valid := TRUE
+      TRUE
+        valid := FALSE
+    RESULT digit, valid
+:
+--}}}

@@ -1,0 +1,61 @@
+--{{{  problem size
+VAL string.length IS 80:
+--}}}  
+--{{{  five processors, 425 root plus 4 on a B003 mixed priority
+--{{{  Network one B008 with T425 and one B003
+VAL K IS 1024:
+VAL M IS K*K:
+ARC Hostlink:
+NODE RootTransputer:
+[4]NODE B003.t:
+NETWORK
+  DO
+    SET RootTransputer (type, memsize := "T414", 2*M)
+    CONNECT RootTransputer[link][0] TO HOST WITH Hostlink
+    CONNECT RootTransputer[link][2] TO B003.t[0][link][0] 
+    CONNECT RootTransputer[link][3] TO B003.t[3][link][0] 
+    DO i = 0 FOR 4
+      DO
+        SET B003.t[i] (type, memsize := "T414", 256*K)
+        CONNECT B003.t[i][link][2] TO B003.t[(i+1)\4][link][3]
+    CONNECT B003.t[2][link][1] TO B003.t[0][link][1]
+:
+--}}}  
+--{{{  Mapping for sorter
+--{{{  HIGH, LOW
+VAL HIGH IS 0:
+VAL LOW IS 1:
+--}}}  
+--{{{  constants of this mapping of the sorter program
+VAL number.of.transputers IS 5:
+VAL number.of.elements IS string.length:
+VAL elements.per.transputer IS number.of.elements/number.of.transputers:
+VAL remaining.elements IS number.of.elements\number.of.transputers:
+VAL elements.on.root IS elements.per.transputer + remaining.elements:
+--}}}  
+NODE inout.p:
+[number.of.elements]NODE pipe.element.p:
+MAPPING
+  DO
+    MAP inout.p ONTO RootTransputer PRI HIGH
+    DO i = 0 FOR elements.on.root-1
+      MAP pipe.element.p[i] ONTO RootTransputer PRI LOW
+    MAP pipe.element.p[elements.on.root-1] ONTO RootTransputer PRI HIGH
+    DO j = 0 FOR 4
+      VAL first.element.here IS elements.on.root +(j*elements.per.transputer):
+      VAL last.element.here IS first.element.here +(elements.per.transputer-1):
+      DO
+        MAP pipe.element.p[first.element.here] ONTO B003.t[j] PRI HIGH
+        DO i = first.element.here + 1 FOR elements.per.transputer - 2
+	  MAP pipe.element.p[i] ONTO B003.t[j] PRI LOW
+        MAP pipe.element.p[last.element.here] ONTO B003.t[j] PRI HIGH
+:
+--}}}  
+--}}}  
+--{{{  Code
+#INCLUDE "hostio.inc" --
+#INCLUDE "sorthdr.inc" --
+#USE "inout.cah"
+#USE "element.cah"
+--}}}  
+#INCLUDE "sortsoft.inc" --

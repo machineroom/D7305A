@@ -1,0 +1,17 @@
+#INCLUDE "runcode.inc"
+
+PROC run.code (CHAN OF CODE.MESSAGE input,
+               []INT run.vector, []BYTE code.buffer)
+  VAL no.parameters IS 3 :   -- smallest allowed
+  INT code.length, entry.offset, work.space.size :
+  INT total.work.space.size :
+  SEQ
+    input ? code.length :: code.buffer;
+            entry.offset; work.space.size
+    total.work.space.size :=
+      work.space.size + (no.parameters + 2)
+    []INT work.space IS
+      [run.vector FROM 0 FOR total.work.space.size] :
+    KERNEL.RUN (code.buffer, entry.offset,
+                work.space, no.parameters)
+:

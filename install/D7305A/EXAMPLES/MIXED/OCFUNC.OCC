@@ -1,0 +1,8 @@
+INT FUNCTION ocfunc(VAL INT arg1, arg2)
+  INT ret:
+  VALOF
+    SEQ
+      -- calculate ret -- this is just an example
+      ret := arg1 TIMES arg2
+    RESULT ret
+:

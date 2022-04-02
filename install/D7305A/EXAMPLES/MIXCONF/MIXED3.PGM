@@ -1,0 +1,51 @@
+-- mixed3.pgm
+
+-- Example of how to create a 'Type 3' mixed language configuration
+-- for use with the occam configurer.
+
+-- Here we have an occam program on the root processor, and a C program
+-- on another processor, connected together by a link.
+-- The link is used to transfer data between the occam and C programs.
+
+-- Written 6 Feb 1991 by CO'N of INMOS.
+
+NODE proc0, proc1 :
+ARC hostlink :
+NETWORK
+  DO
+    SET proc0(type, memsize := "T414", #200000)
+    SET proc1(type, memsize := "T414", #200000)
+    CONNECT proc0[link][0] TO HOST WITH hostlink
+    CONNECT proc0[link][3] TO proc1[link][0]
+:
+
+#INCLUDE "hostio.inc"
+#USE "mixed3o.lku"
+#USE "mixed3c.lku"
+
+CONFIG
+  CHAN OF SP fs, ts :
+  PLACE fs, ts ON hostlink :
+
+  CHAN OF INT32 c.to.occam.int, occam.to.c.int :
+  PAR
+    PROCESSOR proc0
+      occam.program(fs, ts, c.to.occam.int, occam.to.c.int)
+
+    PROCESSOR proc1
+      [10000]INT stack.and.heap :
+      [1]INT dummy :
+      [3]INT chan.in, chan.out :
+      VAL flag IS 1 : -- This means combined stack and heap
+      SEQ
+
+        -- See INMOS Dx214A "C Toolset" manual, appendix F, for details of
+        -- PROC.ENTRY.RC
+
+        -- Initalise the channels which are used to talk to the occam part
+        -- (Channels 0 and 1 are reserved by PROC.ENTRY.RC)
+        LOAD.INPUT.CHANNEL (chan.in [2], occam.to.c.int)
+        LOAD.OUTPUT.CHANNEL(chan.out[2], c.to.occam.int)
+
+        PROC.ENTRY.RC(flag, stack.and.heap, dummy, chan.in, chan.out)
+:

@@ -1,0 +1,31 @@
+------------------------------
+--
+--  Debugger example:  deadlock.occ
+--
+--  Example of deadlock.
+--
+------------------------------
+
+
+#INCLUDE "hostio.inc"
+#USE     "hostio.lib"
+
+
+PROC deadlock.entry (CHAN OF SP fs, ts, []INT free.memory)
+
+  PROC deadlock ()
+    CHAN OF INT c :
+    PAR
+      SEQ
+        c ! 99
+        c ! 101
+
+      INT x :
+      SEQ
+        c ? x
+  :              --  <==  Missing second input
+
+  SEQ
+    deadlock ()
+    so.exit (fs, ts, sps.success)
+:

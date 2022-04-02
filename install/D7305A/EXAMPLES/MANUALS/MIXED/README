@@ -1,0 +1,23 @@
+SUBDIRECTORY mixed
+
+The example in this subdirectory is that used in the Mixed Language
+programming chapter of the user manual.
+
+cfunc.c		A C function to be called from occam
+mixed.occ	OCCAM code which calls C
+callc.lnk	A linker indirect file for linking both together
+mixed.lnk	A linker indirect file for use with imakef
+
+This example can be built as follows
+
+	icc cfunc.c
+	oc mixed.occ
+	ilink -f callc.lnk
+	icollect -t mixed.lku
+
+Alternatively the example can be built using imakef as follows:
+
+	imakef mixed.b4h -c
+	make -f mixed.mak
+
+When using an MS-DOS or VMS system, replace '-' by '/'

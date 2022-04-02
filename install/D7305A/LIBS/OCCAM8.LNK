@@ -1,0 +1,6 @@
+--
+-- occam8.lnk
+--
+occamutl.lib
+occam8.lib
+virtual.lib

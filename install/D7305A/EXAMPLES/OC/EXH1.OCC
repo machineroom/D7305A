@@ -1,0 +1,62 @@
+#INCLUDE "hostio.inc" --
+#USE "hostio.lib"
+PROC exh1 (CHAN OF SP from.isv, to.isv, []INT freespace)
+  --{{{  
+  SEQ
+    -- This example uses screen output only
+  
+    so.write.string.nl(from.isv, to.isv,"Hello - here are the biggest numbers")
+    so.write.nl(from.isv, to.isv)
+  
+    --{{{  INT
+    SEQ
+      so.write.string(from.isv, to.isv, "Of type INT: ")
+      so.write.int(from.isv, to.isv, MOSTPOS INT, 0) -- as wide as necessary
+      so.write.string(from.isv, to.isv, " and in hex it is: ")
+      so.write.hex.int(from.isv, to.isv, MOSTPOS INT, 8) -- 8 hex digits
+      so.write.nl(from.isv, to.isv)
+    --}}}
+  
+    --{{{  INT64
+    VAL INT64 IntMax64 IS MOSTPOS INT64:
+    SEQ
+      so.write.string(from.isv, to.isv, "Of type INT64: ")
+      so.write.int64(from.isv, to.isv, IntMax64, 0) -- as wide as necessary
+      so.write.string(from.isv, to.isv, " and in hex it is: ")
+      so.write.hex.int64(from.isv, to.isv, IntMax64, 16) -- 16 hex digits
+      so.write.nl(from.isv, to.isv)
+    --}}}
+  
+    --{{{  REAL32
+    VAL Hex.real32.max IS #7F7FFFFF:             -- s=0, e=254, f=all 1's
+    VAL REAL32 RealMax32 RETYPES Hex.real32.max :
+    SEQ
+      so.write.string(from.isv, to.isv, "Of type REAL32: ")
+      so.write.real32(from.isv, to.isv, RealMax32, 0, 0) -- as wide as necessary
+      so.write.string(from.isv, to.isv, " and in hex it is: ")
+      so.write.hex.int(from.isv, to.isv, Hex.real32.max, 8) -- 8 hex digits
+      so.write.nl(from.isv, to.isv)
+    --}}}
+  
+    --{{{  REAL64
+    VAL Hex.real64.max IS [#FFFFFFFF,#7FEFFFFF]: -- least sig word first
+    VAL REAL64 RealMax64 RETYPES Hex.real64.max :
+    SEQ
+      so.write.string(from.isv, to.isv, "Of type REAL64: ")
+      so.write.real64(from.isv, to.isv, RealMax64, 0, 0) -- as wide as necessary
+      so.write.nl(from.isv, to.isv)
+      so.write.string(from.isv, to.isv, "and in hex it is: ")
+      so.write.hex.int(from.isv, to.isv, Hex.real64.max[1], 8) -- 8 hex digits
+      so.write.string(from.isv, to.isv, "(top word)")
+      so.write.hex.int(from.isv, to.isv, Hex.real64.max[0], 8) -- 8 hex digits
+      so.write.string(from.isv, to.isv, "(bottom word)")
+      so.write.nl(from.isv, to.isv)
+    --}}}
+  
+    so.write.string(from.isv, to.isv, "Type ANY to continue")
+    BYTE bres, bany:
+    so.getkey(from.isv, to.isv, bany, bres)
+    so.write.nl(from.isv, to.isv)
+    so.exit (from.isv, to.isv, sps.success)
+  --}}}
+:

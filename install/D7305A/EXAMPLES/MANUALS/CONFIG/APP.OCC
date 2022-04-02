@@ -1,0 +1,8 @@
+#INCLUDE "hostio.inc"
+#USE "hostio.lib"
+
+PROC application.process(CHAN OF SP fs, ts)
+  SEQ
+    so.write.string.nl(fs, ts, "Hello world")
+    so.exit(fs, ts, sps.success)
+:

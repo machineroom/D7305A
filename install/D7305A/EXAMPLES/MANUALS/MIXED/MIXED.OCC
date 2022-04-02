@@ -1,0 +1,47 @@
+#INCLUDE "hostio.inc"
+#USE "hostio.lib"
+#USE "callc.lib"  -- the 'calling C' functions
+
+#PRAGMA TRANSLATE C "c_func"
+
+-- declare the C function as an occam descriptor
+#PRAGMA EXTERNAL "INT FUNCTION C(VAL INT GSB,x,free) = 200"
+
+PROC mixed(CHAN OF SP fs, ts, []INT freemem)
+  INT GSB, required.size:
+
+  -- Allow very large static and heap area sizes
+  VAL static.size IS 4000:
+  VAL heap.size   IS 4000:
+  [static.size]INT static.area:
+  [heap.size]INT   heap.area:
+
+  SEQ
+    -- set up static.area as the static area
+    init.static(static.area, required.size, GSB)
+    -- now check for error
+    IF
+      required.size > static.size
+        so.write.string.nl(fs, ts,
+                 "error initialising static")
+      TRUE
+        INT fail:
+        SEQ
+          -- Set up the heap area
+          -- Note that GSB is the first parameter
+	  init.heap(GSB, heap.area)
+
+          -- Call the C function. Note that the GSB
+          -- is passed as the first parameter.
+	  fail := C(GSB, 2000, 0)
+          IF
+            fail = 0
+              so.write.string.nl (fs, ts, "malloc OK")
+	    TRUE 
+              so.write.string.nl (fs, ts, "malloc failed")
+    -- now tidy up the stack and heap allocated
+    terminate.heap.use(GSB)
+    terminate.static.use(GSB)
+    -- and exit
+    so.exit(fs, ts, sps.success)
+:

@@ -1,0 +1,87 @@
+#INCLUDE "hostio.inc" --
+#INCLUDE "streamio.inc" --
+#INCLUDE "mathvals.inc" --
+#USE "hostio.lib"
+#USE "streamio.lib"
+PROC exh4 (CHAN OF SP from.isv, to.isv, []INT freespace)
+  SEQ
+    -- Takes keystream input from a file
+
+    [1000]REAL32 ax:
+    INT j:
+    BYTE bres:
+    SEQ
+      so.write.string.nl(from.isv, to.isv,
+       "Takes from file REALNUM.LIS a sequence of real numbers terminated by 0.0")
+      so.write.nl(from.isv, to.isv)
+
+      CHAN OF KS filekeys:
+      CHAN OF KS keyboard IS filekeys: -- channel from simulated keyboard
+      PAR
+	------------------------------------------------------------
+	so.keystream.from.file (from.isv, to.isv,
+			       keyboard, "realnum.lis", bres)
+	------------------------------------------------------------
+	REAL32 x:
+	INT kchar:
+	SEQ
+	  j := 0
+	  --{{{  read a sequence of real numbers
+	  kchar := 0
+	  x := 1.0(REAL32)
+	  WHILE (NOTFINITE(x) OR (x <> 0.0(REAL32))) AND
+		(kchar <> ft.terminated)
+	    SEQ
+	      ks.read.char (keyboard, kchar)
+	      IF
+		kchar < 0
+		  SKIP
+		----{{{COMMENT COMMENT hexadecimal (not in streamio)
+		----{{{  hexadecimal (not in streamio)
+		--kchar = (INT'#')
+		  --INT hexx RETYPES x:
+		  --ks.read.hex.int (keyboard, hexx, kchar)
+		----}}}
+		----}}}
+		TRUE
+		  ks.read.real32 (keyboard, x, kchar)
+	      IF
+		kchar = ft.terminated
+		  SKIP
+		TRUE
+		  SEQ
+		    IF
+		      kchar = ft.number.error
+			ax[j] := INFINITY
+		      TRUE
+			SKIP
+		    ax[j] := x
+		    j := j + 1
+	  --}}}
+	  --{{{  consume rest of file if any
+	  IF
+	    (kchar >= 0) OR (kchar = ft.number.error)
+	      ks.keystream.sink (keyboard) -- consume the rest of the keyboard file
+	    TRUE
+	      SKIP  -- keyboard file has terminated or failed
+	  --}}}
+	------------------------------------------------------------
+      IF
+	bres = spr.ok
+	  --{{{  tabulate
+	  SEQ
+	    so.write.string.nl(from.isv, to.isv,
+		"These are the numbers in REALNUM.LIS")
+	    --{{{  write the table of j real numbers
+	    so.write.nl(from.isv, to.isv)
+	    SEQ i = 0 FOR j
+	      SEQ
+		so.write.real32(from.isv, to.isv, ax[i], 10, 10)
+		so.write.nl(from.isv, to.isv)
+	    --}}}
+	  --}}}
+	TRUE
+	  so.write.string.nl(from.isv, to.isv, "Failed to read REALNUM.LIS")
+
+    so.exit (from.isv, to.isv, sps.success)
+:

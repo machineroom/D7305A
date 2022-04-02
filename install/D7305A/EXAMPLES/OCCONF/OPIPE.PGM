@@ -1,0 +1,64 @@
+--{{{  Constant definitions
+--{{{  kilo, mega
+VAL K IS 1024:
+VAL M IS K*K:
+--}}}
+VAL p IS 4:
+--}}}
+--{{{  Network description
+[p]NODE Pipe:
+ARC HostLink:
+NETWORK
+  DO
+    CONNECT HOST TO Pipe[0][link][0] WITH HostLink
+    DO i = 0 FOR p-1
+      CONNECT Pipe[i][link][2] TO Pipe[i+1][link][1]
+    DO i = 0 FOR p
+      IF
+	i = 1
+	  SET Pipe[i] (type, memsize := "T414", 2*M)
+	TRUE
+	  SET Pipe[i] (type, memsize := "T414", 1*M)
+:
+--}}}
+--{{{  software size constants
+VAL m IS 10:
+VAL n IS ((2 * p) - 2) + m:
+--}}}
+--{{{  Mapping
+NODE HostPass.p:
+[n]NODE MultPass.p:
+MAPPING
+  DO
+    MAP HostPass.p ONTO Pipe[0]
+    DO i = 0 FOR p
+      MAP MultPass.p[i] ONTO Pipe[i]
+    DO j = 0 FOR p-2
+      MAP MultPass.p[p+j] ONTO Pipe[(p-j)-1]
+    DO k = (2*p)-2 FOR m
+      MAP MultPass.p[k] ONTO Pipe[1]
+:
+--}}}
+#INCLUDE "hostio.inc" --
+--{{{  Code
+#USE "hostpass.cah"
+#USE "multpass.cah"
+--}}}
+CONFIG
+  --{{{  Software description
+  CHAN OF SP HostInput, HostOutput:
+  PLACE HostInput, HostOutput ON HostLink:
+  CHAN OF INT32 HostToPipe:
+  [n]CHAN OF INT32 PipeChan:
+  PAR
+    PROCESSOR HostPass.p
+      HostPass (HostInput, HostOutput, [PipeChan[n-1]], [HostToPipe])
+    --{{{  Multpass
+    PROCESSOR MultPass.p[0]
+      MultPass ([HostToPipe], [PipeChan[0]])
+    PAR i = 1 FOR n  - 1
+      PROCESSOR MultPass.p[i]
+	MultPass ([PipeChan[i-1]], [PipeChan[i]])
+    --}}}
+  --}}}
+:

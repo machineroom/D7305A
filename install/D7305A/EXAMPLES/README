@@ -1,0 +1,9 @@
+The examples directory contains various subdirectories, each containing
+different types of examples:
+
+manuals         All the examples mentioned in the user manuals.
+oc		Miscellaneous occam program examples.
+occonf		Miscellaneous occam configurer examples.
+mixed		Mixing occam with INMOS ANSI C.
+mixconf		Using INMOS ANSI C programs with the occam configurer.
+idebug		Examples illustrating the use of the debugger.

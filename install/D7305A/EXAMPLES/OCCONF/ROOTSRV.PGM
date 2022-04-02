@@ -1,0 +1,39 @@
+--{{{  hardware description
+-- This is the first example configuration from the user manual
+-- In order to configure it you need to add real linked (#USE) units and
+-- a host interface (ARC declaration and CONNECT statement)
+
+VAL K IS  1024 :             -- useful constants for memory sizes
+VAL M IS K * K :
+
+NODE root.p, server.p :      -- declare two physical processors
+NETWORK  simple.network
+  DO
+    SET root.p   (type, memsize, root, romsize := "T414", 1 * M, TRUE, 64*K)
+    SET server.p (type, memsize := "T800", 4 * M)
+    CONNECT root.p[link][3] TO server.p[link][0]
+:
+--}}}  
+--{{{  mapping
+-- Note that this one-to-one mapping of logical to physical processors
+-- may be replaced by abbreviations, or omitted altogether if the physical
+-- processor names are used in the software description
+
+NODE root.l, server.l:
+MAPPING
+  DO
+    MAP root.l ONTO root.p
+    MAP server.l ONTO server.p
+:
+--}}}  
+--{{{  software description
+PROTOCOL protocol IS INT:
+CONFIG
+  CHAN OF protocol root.to.server, server.to.root :
+  PLACED PAR
+    PROCESSOR root.l
+      root.process(server.to.root, root.to.server)
+    PROCESSOR server.l
+      server.process(root.to.server, server.to.root)
+:
+--}}}  

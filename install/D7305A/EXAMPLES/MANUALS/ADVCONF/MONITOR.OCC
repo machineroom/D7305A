@@ -1,0 +1,20 @@
+-- V1.00
+
+-- Dummy structure for PROC Monitor
+
+#INCLUDE "hostio.inc"
+#USE "hostio.lib"
+
+PROC Monitor( CHAN OF SP fs, ts, [2]CHAN OF BYTE Res, [4]CHAN OF BYTE Cntl )
+  SEQ
+    PAR
+      BYTE Tag :
+      Res[0] ? Tag
+      BYTE Tag :
+      Res[1] ? Tag
+      Cntl[0] ! 0 (BYTE)
+      Cntl[1] ! 0 (BYTE)
+      Cntl[2] ! 0 (BYTE)
+      Cntl[3] ! 0 (BYTE)
+    so.exit( fs, ts, sps.success )
+:

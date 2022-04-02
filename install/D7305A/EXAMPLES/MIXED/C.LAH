@@ -1,0 +1,12 @@
+--
+-- imakef : Version 3.10, 13th July 1990
+--
+-- linker command file "c.lah"
+--
+c.tah
+f.tax
+hostio.lib
+convert.lib
+callc.lib
+#INCLUDE clibsrd.lnk
+#INCLUDE occama.lnk

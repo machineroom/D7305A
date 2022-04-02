@@ -1,0 +1,21 @@
+----------------------------------------
+--
+--  Debugger example:  mult.occ (forms opair)
+--
+--  Forms one of two parallel occam processes
+--  on different processors (see opair.pgm).
+--
+----------------------------------------
+
+
+PROC mult.entry (CHAN OF INT32 from.master, to.master,
+                 VAL INT32 multiplier)
+  INT32 val :
+  SEQ
+    from.master ? val
+
+    WHILE val >= 0 (INT32)
+      SEQ
+        to.master ! val * multiplier
+        from.master ? val
+:

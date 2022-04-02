@@ -1,0 +1,7 @@
+--
+-- linker command file "calocc2.lax"
+
+calocc2.tax
+#INCLUDE cnonconf.lnk
+occparam.tax
+#INCLUDE occama.lnk

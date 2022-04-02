@@ -1,0 +1,6 @@
+mixed.t4h
+cfunc.t4x
+hostio.lib
+callc.lib
+#include clibsrd.lnk
+#include occama.lnk

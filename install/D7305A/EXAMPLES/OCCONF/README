@@ -1,0 +1,110 @@
+SUBDIRECTORY occonf
+
+These examples include configuration code (in .pgm files) for a variety of
+simple networks. Common sub-files are stored in .inc files.
+
+b004td.occ	A user interface for the simple 5 processor hello program
+hello0.occ	Hello procedure for root processor of a B003
+hello1.occ	Hello procedure for other processors of B003
+b3b4.pgm	Configuration calling three previous examples on a 5 processor
+		network consisting of a B004 and a B003.
+		(see also ..\sorter\sortb4b3.pgm)
+
+	This example can be built by writing:
+	imakef b3b4.btl
+	make -f b3b4.mak
+
+
+rootsrv.pgm	The first configuration example in the user manual (not complete)
+
+	This example is not complete and is not intended to be built
+	in this form; it is supplied purely for illustration.
+
+
+hostpass.occ	A stub procedure for a variety of following configurations.
+		This goes on the processor supported directly by the host.
+multpass.occ	A stub procedure for a variety of following configurations.
+		This is replicated on all other processors of the networks.
+
+
+The following configuration files are in a form suitable for generating
+make files with imakef. They all use the same code code modules:
+hostpass.cah and multpass.cah
+
+otree.pgm	A simple tree-shaped configuration
+
+	This example can be built by writing:
+	imakef otree.btl
+	make -f otree.mak
+	Or, equivalently:
+	oc hostpass -ta -h -o hostpass.tah 
+	oc multpass -ta -h -o multpass.tah 
+	ilink hostpass.tah hostio.lib convert.lib -f occama.lnk -ta -h -o hostpass.cah 
+	ilink multpass.tah -f occama.lnk -ta -h -o multpass.cah 
+	occonf otree.pgm -o otree.cfb 
+	icollect otree.cfb -o otree.btl 
+
+
+oring.pgm	A simple ring with more processes than processors
+
+	This example can be built by writing:
+	imakef oring.btl
+	make -f oring.mak
+	Or, equivalently:
+	oc hostpass -ta -h -o hostpass.tah 
+	oc multpass -ta -h -o multpass.tah 
+	ilink hostpass.tah hostio.lib convert.lib -f occama.lnk -ta -h -o hostpass.cah 
+	ilink multpass.tah -f occama.lnk -ta -h -o multpass.cah 
+	occonf oring.pgm -o oring.cfb 
+	icollect oring.cfb -o oring.btl 
+
+
+opipe.pgm	A simple pipeline of processes
+
+	This example can be built by writing:
+	imakef opipe.btl
+	make -f opipe.mak
+	Or, equivalently:
+	oc hostpass -ta -h -o hostpass.tah 
+	oc multpass -ta -h -o multpass.tah 
+	ilink hostpass.tah hostio.lib convert.lib -f occama.lnk -ta -h -o hostpass.cah 
+	ilink multpass.tah -f occama.lnk -ta -h -o multpass.cah 
+	occonf opipe.pgm -o opipe.cfb 
+	icollect opipe.cfb -o opipe.btl 
+
+
+squanet.inc	Hardware network description for a general p*p square network
+		suitable for osquare and ozigzag
+squab003.inc	Special case for 2*2 square on a B003, supported by T800
+squamap.inc	Mapping of osquare onto square network plus host transputer
+
+osquare.pgm	A complex multi-connected square array of processes, with
+		mappings onto one processor or may be modified for
+		(p*p)+1 processors.
+
+	This example can be built by writing:
+	imakef osquare.btl
+	make -f osquare.mak
+	Or, equivalently:
+	oc hostpass -ta -h -o hostpass.tah 
+	oc multpass -ta -h -o multpass.tah 
+	ilink hostpass.tah hostio.lib convert.lib -f occama.lnk -ta -h -o hostpass.cah 
+	ilink multpass.tah -f occama.lnk -ta -h -o multpass.cah 
+	occonf osquare.pgm -o osquare.cfb 
+	icollect osquare.cfb -o osquare.btl 
+
+
+ozigzag.pgm	A different configuration based on the same network as osquare
+		but with a less complex connectivity in the software
+
+	This example can be built by writing:
+	imakef ozigzag.btl
+	make -f ozigzag.mak
+	Or, equivalently:
+	oc hostpass -ta -h -o hostpass.tah 
+	oc multpass -ta -h -o multpass.tah 
+	ilink hostpass.tah hostio.lib convert.lib -f occama.lnk -ta -h -o hostpass.cah 
+	ilink multpass.tah -f occama.lnk -ta -h -o multpass.cah 
+	occonf ozigzag.pgm -o ozigzag.cfb 
+	icollect ozigzag.cfb -o ozigzag.btl
+

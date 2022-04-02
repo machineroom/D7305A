@@ -1,0 +1,25 @@
+#INCLUDE "hostio.inc"
+#USE "hostio.lib"
+#USE "callc.lib"
+
+#PRAGMA EXTERNAL "INT FUNCTION f (VAL INT gsb, VAL INT arg) = 100"
+
+PROC p (CHAN OF SP fs, ts, []INT mem)
+  INT req, gsb :
+  INT x :
+  SEQ
+    init.static(mem, req, gsb)
+
+    -- heap is not required in this particular C example
+    --heap IS [mem FROM req FOR (SIZE mem) - req] :
+    SEQ
+      --init.heap(gsb, heap)
+      x := f(gsb, 27)
+      --terminate.heap.use(gsb)
+
+    terminate.static.use(gsb)
+    so.write.string(fs, ts, "The result was: ")
+    so.write.int(fs, ts, x, 0)
+    so.write.nl(fs, ts)
+    so.exit(fs, ts, sps.success)
+:

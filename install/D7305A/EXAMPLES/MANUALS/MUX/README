@@ -1,0 +1,16 @@
+SUBDIRECTORY mux
+
+The example in this subdirectory is that used in the Access to Host Services
+chapter of the user manual.
+
+process0.occ	Dummy process 0
+process1.occ	Dummy process 1
+process2.occ	Dummy process 2
+mux.occ		Multiplexing 'main body'
+
+This example can be built using imakef as follows
+
+	imakef mux.bah
+	make -f mux.mak
+
+When using an MS-DOS or VMS system, replace '-' by '/'

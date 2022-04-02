@@ -1,0 +1,650 @@
+----{{{COMMENT COMMENT Notes
+----{{{  Notes
+--This example includes a general purpose cooked key streamer which uses the
+--information in the ITERM file (via environment variable ITERM) to read from
+--the keyboard using so.pollkey and deliver cooked key values in KS protocol.
+--This procedure will work both in an EXE inside the TDS, where the cooking
+--is actually performed by the TDS itself, and in a standalone program where
+--the conversion is performed by this code.
+--
+--It is suggested that application programs using the cooked key idea should
+--be developed initially using the TDS keyboard channel and then when the time
+--comes to make them stand-alone this procedure may be used to perform the
+--cooking.
+----}}}
+----}}}
+
+#INCLUDE "streamio.inc" --
+#INCLUDE "hostio.inc" --
+--{{{  clock ticks
+VAL tptr.h.ticks.per.second IS 1000000(INT32) : -- high priority process
+VAL tptr.l.ticks.per.second IS 15625(INT32) :   -- low priority process
+VAL tptr.a.ticks.per.second IS 625000(INT32) :  -- rev A silicon
+--}}}
+--{{{  values for "cooked" keys
+VAL tab            IS '*t' :
+
+VAL return         IS INT '*c' :
+VAL delete         IS 127 :       -- may also receive tt.del.chl
+VAL ft.tag         IS 200 :
+VAL ft.return      IS ft.tag + 0 :
+VAL ft.up          IS ft.tag + 1 :
+VAL ft.down        IS ft.tag + 2 :
+VAL ft.left        IS ft.tag + 3 :
+VAL ft.right       IS ft.tag + 4 :
+VAL ft.del.chl     IS ft.tag + 5 :
+VAL ft.del.chr     IS ft.tag + 6 :
+VAL ft.del.line    IS ft.tag + 7 :
+VAL ft.undel.line  IS ft.tag + 8 :
+VAL ft.sol         IS ft.tag + 9 :
+VAL ft.eol         IS ft.tag + 10 :
+VAL ft.move        IS ft.tag + 11 :
+VAL ft.copy        IS ft.tag + 12 :
+VAL ft.line.up     IS ft.tag + 13 :
+VAL ft.line.down   IS ft.tag + 14 :
+VAL ft.page.up     IS ft.tag + 15 :
+VAL ft.page.down   IS ft.tag + 16 :
+VAL ft.create.fold IS ft.tag + 17 :
+VAL ft.remove.fold IS ft.tag + 18 :
+VAL ft.open.fold   IS ft.tag + 19 :
+VAL ft.close.fold  IS ft.tag + 20 :
+VAL ft.enter.fold  IS ft.tag + 21 :
+VAL ft.exit.fold   IS ft.tag + 22 :
+VAL ft.refresh     IS ft.tag + 23 :
+VAL ft.file.fold   IS ft.tag + 24 :
+VAL ft.unfile      IS ft.tag + 25 : -- not now used by TDS
+VAL ft.finish      IS ft.tag + 26 :
+VAL ft.edit.parms  IS ft.tag + 27 :
+VAL ft.fold.info   IS ft.tag + 28 :
+VAL ft.help        IS ft.tag + 29 :
+VAL ft.locate      IS ft.tag + 30 : -- not now used by TDS
+VAL ft.get.code    IS ft.tag + 31 :
+VAL ft.put.code    IS ft.tag + 32 : -- not now used by TDS
+VAL ft.save.macro  IS ft.tag + 32 :
+VAL ft.clear.code  IS ft.tag + 33 : -- not now used by TDS
+VAL ft.get.macro   IS ft.tag + 33 :
+VAL ft.run         IS ft.tag + 34 :
+VAL ft.tool0       IS ft.tag + 35 :
+VAL ft.tool1       IS ft.tag + 36 :
+VAL ft.tool2       IS ft.tag + 37 :
+VAL ft.tool3       IS ft.tag + 38 :
+VAL ft.tool4       IS ft.tag + 39 :
+VAL ft.tool5       IS ft.tag + 40 :
+VAL ft.tool6       IS ft.tag + 41 :
+VAL ft.tool7       IS ft.tag + 42 :
+VAL ft.tool8       IS ft.tag + 43 :
+VAL ft.tool9       IS ft.tag + 44 :
+VAL ft.word.left   IS ft.tag + 45 :
+VAL ft.word.right  IS ft.tag + 46 :
+VAL ft.del.wordl   IS ft.tag + 47 :
+VAL ft.del.wordr   IS ft.tag + 48 :
+VAL ft.delto.eol   IS ft.tag + 49 :
+VAL ft.top.of.fold IS ft.tag + 50 :
+VAL ft.bottom.of.fold  IS ft.tag + 51 :
+VAL ft.select.param IS ft.tag + 52 :
+VAL ft.code.info   IS ft.tag + 53 :
+VAL ft.pick        IS ft.tag + 54 :
+VAL ft.copy.pick   IS ft.tag + 55 :
+VAL ft.put         IS ft.tag + 56 :
+VAL ft.next.util   IS ft.tag + 57 :
+VAL ft.clear.util  IS ft.tag + 58 :
+VAL ft.autoload    IS ft.tag + 59 :
+VAL ft.next.exe    IS ft.tag + 60 :
+VAL ft.clear.exe   IS ft.tag + 61 :
+VAL ft.clear.all   IS ft.tag + 62 :
+VAL ft.browse      IS ft.tag + 63 :
+VAL ft.suspend.tds IS ft.tag + 64 :
+VAL ft.define.macro IS ft.tag + 65 :
+VAL ft.call.macro  IS ft.tag + 66 :
+VAL ft.make.comment IS ft.tag + 67 :
+VAL ft.copy.move   IS ft.tag + 68 :  -- reserved for possible future use
+VAL ft.delto.sol   IS ft.tag + 69 :  -- reserved for possible future use
+VAL ft.bad         IS ft.tag + 70 :
+--}}}
+--{{{  echosc in form of standard hosted procedure
+PROC echosc (CHAN OF SP from.isv, to.isv, []INT freespace)
+  #USE "hostio.lib"
+  #USE "streamio.lib"
+  #USE "string.lib"
+  --{{{  cookkstr
+  PROC so.cooked.keystream.from.kbd (CHAN OF SP fs, ts,
+			      CHAN OF KS keys.out, CHAN OF BOOL stopper,
+			      VAL INT ticks.per.poll)
+  
+    -- This routine reads keys at full speed if they are available, otherwise
+    -- it waits ticks.per.poll ticks between attempts
+    -- ticks.per.poll should never be zero!
+    -- It reads the keyboard section of the ITERM file
+    -- and performs cooking actions specified therein
+    -- It may be used inside an EXE, or in a stand-alone program
+    TIMER time :
+    INT   wake.time :
+    BOOL  running :
+    BYTE  result, key :
+    --{{{  constants for iterm tables
+    VAL max.entries.per.keyboard.line IS 10 :
+    VAL max.keyboard.entries IS 100 :
+    --}}}
+    --{{{  variables
+    [max.keyboard.entries][max.entries.per.keyboard.line + 2] BYTE keyboard.table :
+    INT number.of.key.entries:
+    BOOL iterm.ok:
+    [max.keyboard.entries] BOOL match.so.far, initial.TRUE :
+    --}}}
+    --{{{  PROC zero.iterm.tables
+    PROC zero.iterm.tables ()
+      SEQ
+	--{{{  zero the keyboard table
+	this.row IS keyboard.table [0] :
+	SEQ i = 0 FOR SIZE this.row
+	  this.row [i] := (BYTE 0)
+	
+	SEQ i = 1 FOR (SIZE keyboard.table) - 1
+	  keyboard.table [i] := keyboard.table [0]
+	--}}}
+    :
+    --}}}
+    --{{{  rditerm
+    PROC ReadItermKbdTable (CHAN OF SP fs, ts,
+		    INT kbd.table.size, [][]BYTE kbd.table, BOOL ok)
+    
+      --{{{  constants
+      VAL absolute.max.entries IS 50 :
+      VAL max.line.length      IS 256 :
+      
+      VAL keyboard.section.char.upper IS 'K' :
+      VAL keyboard.section.char.lower IS 'k' :
+      
+      VAL end.of.section.char.upper   IS 'E' :
+      VAL end.of.section.char.lower   IS 'e' :
+      
+      VAL comment.char IS '#' :
+      --}}}
+      --{{{  variables
+      [256]BYTE file.name :      -- description file name
+      INT file.len  :      -- length of file name
+      INT32 stream.id :
+      VAL tdssearch IS "TDSSEARCH":
+      --}}}
+      --{{{  procedures
+      --{{{  GetLine
+      PROC GetLine ([max.line.length]BYTE line, INT line.len,
+		    BOOL eof, INT line.no, BOOL ok)
+      
+	BOOL comment.line :
+	BYTE result :
+	SEQ
+	  comment.line := TRUE
+	  eof          := FALSE
+	  WHILE comment.line AND (NOT eof)
+	    SEQ
+	      so.gets (fs, ts, stream.id, line.len, line, result)
+	      IF
+		result = spr.ok
+		  SEQ
+		    line.no := line.no + 1
+		    --{{{  check whether this is a comment line
+		    comment.line := (line.len = 0) OR (line [0] = comment.char)
+		    --}}}
+		TRUE
+		  --{{{  read error or eof
+		  SEQ
+		    so.eof (fs, ts, stream.id, result)
+		    IF
+		      result = spr.ok
+			eof := TRUE
+		      TRUE
+			SEQ
+			  so.write.string    (fs, ts, "Error : Cannot read ITERM file *"")
+			  so.write.string    (fs, ts, [file.name FROM 0 FOR file.len])
+			  so.write.string.nl (fs, ts, "*"")
+			  ok := FALSE
+		  --}}}
+      :
+      --}}}
+      --{{{  Error
+      PROC Error (VAL []BYTE str, VAL INT line.no)
+	SEQ
+	  so.write.string    (fs, ts, "ITERM error on line ")
+	  so.write.int       (fs, ts, line.no, 0)
+	  so.write.string    (fs, ts, ", ")
+	  so.write.string.nl (fs, ts, str)
+      :
+      --}}}
+      --{{{  StrToInt
+      PROC StrToInt(VAL []BYTE line, INT index, INT num, BOOL ok)
+	INT   sign :
+	BOOL  done :
+	SEQ
+	  num := 0
+	  done := FALSE
+	  ok := FALSE
+	  --{{{  check for sign
+	  IF
+	    line[index] = '-'
+	      SEQ
+		sign := -1
+		index := index + 1
+	    TRUE
+	      sign := 1
+	  --}}}
+	  WHILE  (NOT done) AND (index < (SIZE line))
+	    --{{{  try to build number
+	    IF
+	      is.digit (line[index])
+		--{{{  build number
+		SEQ
+		  ok := TRUE
+		  num := (10 * num) + ((INT line[index]) - (INT '0'))
+		  index := index + 1
+		--}}}
+	      TRUE
+		done := TRUE
+	    --}}}
+	  --{{{  set up sign
+	  IF
+	    ok
+	      num := sign * num
+	    TRUE
+	      SKIP
+	  --}}}
+      :
+      --}}}
+      --{{{  CheckEntry
+      PROC CheckEntry(VAL []BYTE line, VAL INT line.no,
+		      [absolute.max.entries]BYTE  workspace, VAL INT max.entries,
+		      INT entry.no, count, VAL INT table.size, BOOL ok,
+		      VAL BOOL check.screen)
+	--{{{  variables
+	INT  Index :
+	INT  int  :
+	BOOL done :
+	--}}}
+	SEQ
+	  --{{{  initialise
+	  SEQ i = 0 FOR SIZE workspace
+	    workspace[i] := (BYTE 0)
+	  
+	  Index := 0
+	  count := 0
+	  --}}}
+	  --{{{  do entry number
+	  StrToInt(line, Index, int, ok)
+	  IF
+	    ok
+	      IF
+		(int < 0) OR (int >= table.size) OR (int > 255)
+		  SEQ
+		    Error ("Invalid entry number", line.no)
+		    ok := FALSE
+		TRUE
+		  entry.no := int
+	    TRUE
+	      Error("Error converting number", line.no)
+	  --}}}
+	  --{{{  check colon
+	  IF
+	    ok
+	      IF
+		line[Index] <> ':'
+		  SEQ
+		    ok := FALSE
+		    Error ("Colon expected", line.no)
+		TRUE
+		  Index := Index + 1
+	    TRUE
+	      SKIP
+	  --}}}
+	  --{{{  get entries
+	  done := FALSE
+	  WHILE ok AND (NOT done)
+	    SEQ
+	      StrToInt (line, Index, int, ok)
+	      --{{{  check ok
+	      IF
+		NOT ok
+		  Error ("Bad data item in file", line.no)
+		TRUE
+		  SKIP
+	      --}}}
+	      --{{{  put in table
+	      IF
+		(count >= max.entries) OR (count >= (SIZE workspace))
+		  SEQ
+		    Error ("Too many entries on this line", line.no)
+		    ok := FALSE
+		TRUE
+		  SEQ
+		    IF
+		      check.screen AND ((int > 127) OR (int < (-22)))
+			--{{{  error
+			SEQ
+			  Error ("Screen values must be between -22 and 127", line.no)
+			  ok := FALSE
+			--}}}
+		      (NOT check.screen) AND ((int < 0) OR (int > 255))
+			--{{{  error
+			SEQ
+			  Error ("These values must be between 0 and 255", line.no)
+			  ok := FALSE
+			--}}}
+		      int >= 0
+			workspace[count] := (BYTE int)
+		      TRUE
+			workspace[count] := BYTE ((- int) \/ #80) -- set high bit
+		    count := count + 1
+	      --}}}
+	      --{{{  check for comma or full stop
+	      IF
+		line[Index] = '.'
+		  done := TRUE
+		line[Index] <> ','
+		  SEQ
+		    Error ("*',*' or *'.*' expected", line.no)
+		    ok := FALSE
+		TRUE
+		  SKIP
+	      --}}}
+	      Index := Index + 1
+	      --{{{  check for falling off the end of the line
+	      IF
+		ok AND (Index >= (SIZE line)) AND (NOT done)
+		  SEQ
+		    Error ("*'.*' expected at end of line", line.no)
+		    ok := FALSE
+		TRUE
+		  SKIP
+	      --}}}
+	  --}}}
+      :
+      --}}}
+      --{{{  DoKeyboard
+      PROC DoKeyboard (INT line.no, [][]BYTE kbd.table, BOOL ok)
+      
+	--{{{  variables
+	INT  line.len :
+	[max.line.length]BYTE line :
+	BOOL done :
+	BOOL eof :
+	
+	INT keyboard.row :
+	--}}}
+	SEQ
+	  done := FALSE
+	  keyboard.row := 0
+	  WHILE (NOT done) AND ok AND (keyboard.row < (SIZE kbd.table))
+	    SEQ
+	      GetLine (line, line.len, eof, line.no, ok)
+	      IF
+		--{{{  NOT ok - skip
+		NOT ok
+		  SKIP
+		--}}}
+		--{{{  end of file - error
+		eof
+		  SEQ
+		    Error ("Unexpected end of file", line.no)
+		    ok := FALSE
+		--}}}
+		--{{{  digit - do entry
+		is.digit (line[0])
+		  [absolute.max.entries]BYTE workspace :
+		  INT entry.no, count :
+		  SEQ
+		    CheckEntry([line FROM 0 FOR line.len], line.no,
+			       workspace, (SIZE kbd.table [0]) - 2,
+			       entry.no, count, SIZE kbd.table, ok, FALSE)
+		    IF
+		      ok
+			SEQ
+			  this.row IS kbd.table [keyboard.row] :
+			  SEQ
+			    this.row [0] := BYTE entry.no   -- already checked for overflow
+			    this.row [1] := BYTE count      -- ditto
+			    [this.row FROM 2 FOR count] := [workspace FROM 0 FOR count]
+			  keyboard.row := keyboard.row + 1
+		      TRUE
+			done := TRUE
+		--}}}
+		--{{{  end of keyboard stuff
+		(line [0] = end.of.section.char.lower) OR
+		(line [0] = end.of.section.char.upper)
+		  done := TRUE
+		--}}}
+		--{{{  otherwise error
+		TRUE
+		  SEQ
+		    Error ("Unknown character while reading keyboard info", line.no)
+		    ok := FALSE
+		--}}}
+	  kbd.table.size := keyboard.row
+	  --{{{  test for overflow
+	  IF
+	    ok AND (NOT done)
+	      Error ("Keyboard table overflow", line.no)
+	    TRUE
+	      SKIP
+	  --}}}
+      :
+      --}}}
+      --}}}
+      SEQ
+	--{{{  initialise
+	ok := TRUE
+	--}}}
+	--{{{  read ITERM environment variable
+	BYTE result :
+	SEQ
+	  so.getenv (fs, ts, "ITERM", file.len, file.name, result)
+	
+	  IF
+	    result <> spr.ok
+	      ok := FALSE
+	    TRUE
+	      SKIP
+	--}}}
+	--{{{  read data file
+	IF
+	  ok
+	    BYTE result :
+	    SEQ
+	      --{{{  open file
+	      so.open (fs, ts, [file.name FROM 0 FOR file.len], spt.text, spm.input,
+		       stream.id, result)
+	      --}}}
+	      IF
+		--{{{  opened ok
+		result = spr.ok
+		  --{{{  variables
+		  BOOL eof, ignoring.this.section :
+		  INT  line.no, line.len :
+		  [max.line.length]BYTE line :
+		  --}}}
+		  SEQ
+		    --{{{  initialise
+		    eof := FALSE
+		    ignoring.this.section := FALSE
+		    line.no := 0
+		    --}}}
+		    WHILE ok AND (NOT eof)
+		      SEQ
+			GetLine (line, line.len, eof, line.no, ok)
+			IF
+			  (NOT ok) OR eof
+			    SKIP
+			  ignoring.this.section
+			    --{{{  check for end of section
+			    ignoring.this.section := (line [0] <> end.of.section.char.lower) AND
+						     (line [0] <> end.of.section.char.upper)
+			    --}}}
+			  TRUE
+			    --{{{  process line (we know it's not blank)
+			    CASE line[0]
+			      keyboard.section.char.upper, keyboard.section.char.lower
+				DoKeyboard (line.no, kbd.table, ok)
+			      ELSE
+				ignoring.this.section := TRUE
+			    --}}}
+		    --{{{  close file
+		    so.close (fs, ts, stream.id, result)
+		    --}}}
+		--}}}
+		--{{{  cannot open file
+		TRUE
+		  ok := FALSE
+		--}}}
+	  TRUE
+	    SKIP
+	--}}}
+    :
+    --}}}
+    --{{{  cook.key using ITERM table
+    PROC cook.key (CHAN OF SP linkin, linkout,
+		   VAL INT key1,
+		   INT cooked)
+      --{{{  get a key and send it
+      --{{{  declarations
+      INT keys.so.far, found.index :
+      BOOL found, still.looking :
+      BYTE key :
+      BYTE result :
+      --}}}
+      SEQ
+	--{{{  set up 'match so far' array to TRUE
+	[match.so.far FROM 0 FOR number.of.key.entries] :=
+	 [initial.TRUE FROM 0 FOR number.of.key.entries]
+	--}}}
+	keys.so.far   := 0
+	found         := FALSE
+	still.looking := TRUE
+	WHILE (NOT found) AND still.looking
+	  SEQ
+	    still.looking := FALSE
+	    --{{{  get a keystroke
+	    IF
+	      keys.so.far = 0
+		key := BYTE key1
+	      TRUE
+		so.getkey (linkin, linkout, key, result)
+	    keys.so.far := keys.so.far + 1
+	    --}}}
+	    --{{{  check this key in the table
+	    VAL table.column IS keys.so.far + 1 : -- skip the length in [1]
+	    INT i :
+	    SEQ
+	      i := 0
+	      WHILE (i < number.of.key.entries) AND (NOT found)
+		SEQ
+		  IF
+		    match.so.far [i]
+		      --{{{  this one has been correct up to here
+		      VAL this.row IS keyboard.table [i] :
+		      VAL len.this.row IS INT this.row[1] :
+		      IF
+			this.row [table.column] = key
+			  IF
+			    keys.so.far = len.this.row -- and correct length
+			      SEQ                      -- got it
+				found       := TRUE
+				found.index := i
+			    TRUE
+			      still.looking := TRUE  -- at least one matches so far
+			TRUE
+			  match.so.far [i] := FALSE
+		      --}}}
+		    TRUE
+		      SKIP
+		  i := i + 1
+	    --}}}
+	--{{{  send the key
+	IF
+	  found
+	    --{{{  send the correct ft. tag
+	    VAL kcode IS INT keyboard.table [found.index] [0] :
+	    CASE kcode
+	      1  -- return
+		cooked := INT '*c'
+	      2  -- delete
+		cooked :=  ft.del.chl
+	      3  -- tab
+		cooked := INT '*t'
+	      4  -- return
+		cooked := ft.return
+	      ELSE
+		VAL ftcode IS (kcode - 5) + ft.tag:
+		IF
+		  (ftcode < ft.tag) OR (ftcode > ft.bad)
+		    cooked := ft.bad
+		  TRUE
+		    cooked := ftcode
+	    --}}}
+	  keys.so.far > 1
+	    --{{{  send NUL
+	    cooked := 0
+	    --}}}
+	  TRUE
+	    --{{{  send a normal ascii char
+	    cooked := INT key
+	    --}}}
+	--}}}
+      --}}}
+    :
+    --}}}
+    SEQ
+      zero.iterm.tables ()
+      ReadItermKbdTable (fs, ts, number.of.key.entries, keyboard.table, iterm.ok)
+      running := iterm.ok
+  
+      --{{{  initialise keyboard 'initial.TRUE' array
+      SEQ i = 0 FOR number.of.key.entries
+	initial.TRUE [i] := TRUE
+      --}}}
+      time ? wake.time -- go straight into the first without waiting
+      WHILE running
+	PRI ALT
+	  stopper ? running
+	    running := FALSE
+	  time ? AFTER wake.time
+	    SEQ
+	      sp.pollkey (fs, ts, key, result)
+	      -- if key there, keep the same wake.time for next time round
+	      IF
+		result = (BYTE ft.tag)
+		  keys.out ! (INT key) + ft.tag
+		result = spr.ok
+		  INT key1, keyc:
+		  SEQ
+		    key1 := INT key
+		    cook.key (fs, ts, key1, keyc)
+		    keys.out ! keyc
+		TRUE
+		  wake.time := wake.time PLUS ticks.per.poll
+      keys.out ! ft.terminated
+  :
+  --}}}
+
+  [2]CHAN OF SP from.sv, to.sv:
+  CHAN OF KS keys:
+  CHAN OF BOOL mstop, stop:
+  VAL pollticks IS (INT tptr.l.ticks.per.second)/16:
+  PAR
+    so.multiplexor (from.isv, to.isv, to.sv, from.sv, mstop)
+    so.cooked.keystream.from.kbd (from.sv[0], to.sv[0], keys, stop, pollticks)
+    --{{{  body of program writing to from/to.sv[1]
+    VAL terminator IS INT 'q':
+    INT kc:
+    SEQ
+      so.write.string.nl (from.sv[1], to.sv[1], "Type keys to show their cooked values - q to quit")
+      kc := 0
+      WHILE kc <> terminator
+	SEQ
+	  ks.read.char (keys, kc)
+	  so.write.int (from.sv[1], to.sv[1], kc, 4)
+      stop ! TRUE
+      WHILE kc > 0
+	ks.read.char (keys, kc)
+      so.exit (from.sv[1], to.sv[1], sps.success)
+      mstop ! TRUE
+    --}}}
+:
+--}}}

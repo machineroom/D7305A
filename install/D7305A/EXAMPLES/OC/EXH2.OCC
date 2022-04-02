@@ -1,0 +1,45 @@
+#INCLUDE "hostio.inc" --
+#USE "hostio.lib"
+PROC exh2 (CHAN OF SP from.isv, to.isv, []INT freespace)
+  --{{{  
+  SEQ
+    -- This example uses keyboard and screen,
+    -- with echoed input of real numbers.
+  
+    so.write.nl(from.isv, to.isv)
+    so.write.string.nl(from.isv, to.isv,
+     "Type a sequence of real numbers terminated by 0.0")
+  
+    REAL32 x:
+    [1000]REAL32 ax:
+    INT j:
+    BOOL numerr:
+    SEQ
+      x := 1.0(REAL32)
+      j := 0
+      WHILE NOTFINITE(x) OR (x <> 0.0(REAL32))
+	SEQ
+	  so.write.string(from.isv, to.isv, "*c*n>")
+	  so.read.echo.real32 (from.isv, to.isv, x, numerr)
+	  IF
+	    numerr
+	      so.write.char(from.isv, to.isv, '*#07')
+	    TRUE
+	      SKIP
+	  ax[j] := x
+	  j := j + 1
+      so.write.nl(from.isv, to.isv)
+      so.write.string.nl(from.isv, to.isv, "These are the numbers you typed")
+      so.write.nl(from.isv, to.isv)
+      SEQ i = 0 FOR j
+	SEQ
+	  so.write.real32(from.isv, to.isv, ax[i], 10, 10)
+	  so.write.nl(from.isv, to.isv)
+  
+    so.write.string(from.isv, to.isv, "Type ANY to continue")
+    BYTE any, bres:
+    so.getkey(from.isv, to.isv, any, bres)
+    so.write.nl(from.isv, to.isv)
+    so.exit (from.isv, to.isv, sps.success)
+  --}}}
+:

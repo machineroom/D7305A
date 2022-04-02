@@ -1,0 +1,13 @@
+#INCLUDE "hostio.inc" --
+PROC sorter (CHAN OF SP fs, ts, []INT memory)
+  #USE "hostio.lib"
+  #INCLUDE "sorthdr.inc" --
+  #USE "inout"
+  #USE "element"
+
+  [number.elements + 1]CHAN OF LETTERS pipe:
+  PAR
+    inout(fs, ts, pipe[number.elements], pipe[0])
+    PAR i = 0 FOR number.elements
+      sort.element(pipe[i], pipe[i+1])
+:

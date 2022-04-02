@@ -1,0 +1,32 @@
+#INCLUDE "sorthdr.inc"
+PROC sort.element (CHAN OF LETTERS input, output)
+  BYTE highest:
+  BOOL going:
+  SEQ
+    going := TRUE
+    WHILE going
+      input ? CASE
+	terminate
+	  going := FALSE
+	letter; highest
+	  BYTE next:
+	  BOOL inline:
+	  SEQ
+	    inline := TRUE
+	    WHILE inline
+	      input ? CASE
+		letter; next
+		  IF
+		    next > highest
+		      SEQ
+			output ! letter; highest
+			highest := next
+		    TRUE
+		      output ! letter; next
+		end.of.letters
+		  SEQ
+		    inline := FALSE
+		    output ! letter; highest
+	    output ! end.of.letters
+    output ! terminate
+:

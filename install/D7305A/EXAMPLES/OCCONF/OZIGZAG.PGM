@@ -1,0 +1,66 @@
+--{{{  kilo, mega
+VAL K IS 1024:
+VAL M IS K*K:
+--}}}  
+--{{{  Hardware Network description from Square includes links unused in this case
+VAL p IS 5:
+#INCLUDE "squanet.inc" --
+--{{{  Alternative: B003 as a square with p=2
+--#INCLUDE "squab003.inc" --
+--}}}  
+VAL n IS p * p:
+--}}}  
+-- Maps a simple pipeline on to a square array in zigzag fashion
+--{{{  Mapping
+-- The process structure is a one-dimensional array, indexed by i.
+-- The processors are in a 2-dimensional array indexed by row, col.
+-- Rows are traversed in alternate directions using connections
+-- that exist for the more fully connected program OSQUARE.
+NODE Hostpass.p:
+[n]NODE Multpass.p:
+MAPPING
+  DO
+    MAP Hostpass.p ONTO HostSquare
+    DO i = 0 FOR n
+      VAL row IS i/p:
+      VAL evenrow IS (row\2) = 0:
+      VAL rem IS i\p:
+      IF
+        evenrow
+	  VAL col IS rem:
+	  MAP Multpass.p[i] ONTO Square[row][col]
+        TRUE
+	  VAL col IS (p-1)-rem:
+	  MAP Multpass.p[i] ONTO Square[row][col]
+:
+--}}}  
+#INCLUDE "hostio.inc" --
+--{{{  Code
+#USE "hostpass.cah"
+#USE "multpass.cah"
+--}}}  
+CONFIG
+  --{{{  Software description
+  CHAN OF SP HostInput, HostOutput:
+  PLACE HostInput, HostOutput ON Hostlink:
+  [n]CHAN OF INT32 PipeChanDown:
+  [n]CHAN OF INT32 PipeChanUp:
+  CHAN OF INT32 PipeEnd:
+  
+  PAR
+    PROCESSOR Hostpass.p
+      HostPass (HostInput, HostOutput, [PipeChanUp[0]], [PipeChanDown[0]])
+    PAR i = 0 FOR n
+      IF
+        i = (n-1)
+	  PROCESSOR Multpass.p[i]
+	    [2]CHAN OF INT32 Input IS [PipeChanDown[i], PipeEnd]:
+	    [2]CHAN OF INT32 Output IS [PipeChanUp[i], PipeEnd]:
+	    MultPass (Input, Output)
+        TRUE
+	  PROCESSOR Multpass.p[i]
+	    [2]CHAN OF INT32 Input IS [PipeChanDown[i], PipeChanUp[i+1]]:
+	    [2]CHAN OF INT32 Output IS [PipeChanUp[i], PipeChanDown[i+1]]:
+	    MultPass (Input, Output)
+  --}}}  
+:

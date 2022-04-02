@@ -1,0 +1,19 @@
+SUBDIRECTORY advconf
+
+The example in this subdirectory is that used in the Advanced use of the
+Configurer chapter to illustrate use of the attributes which control
+virtual routing.
+
+filter.occ	Dummy harness for process Filter
+generate.occ	Dummy harness for process Generate
+result.occ	Dummy harness for process Result
+monitor.occ	Dummy harness for process Monitor
+router.pgm	Configuration file
+
+This example can be built by using imakef as follows
+
+	imakef router.btl
+	make -f router.mak
+
+When using an MS-DOS or VMS system, replace '-' by '/'
+

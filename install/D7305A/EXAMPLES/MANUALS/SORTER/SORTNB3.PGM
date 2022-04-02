@@ -1,0 +1,131 @@
+--{{{  building and running instructions
+--Set n to the number of B003s available (>=2).
+--Compile and link the components, configure and collect the program.
+--Connect the first B003 to the master transputer (any TA):
+  --Connect UP on the B003 to SUBSYSTEM on the master
+  --Connect processor 0 link 0 on the B003 to link 2 on the master
+--
+--Connect the others in a doubly linked chain:
+  --Connect DOWN on each B003 to UP on the next
+  --Connect processor 1 link 1 on each B003 to processor 0 link 0 on the next
+  --Connect processor 2 link 0 on each B003 to processor 3 link 1 on the next
+--
+--Then type to DOS:
+--iskip /e /i /r 2
+--iserver /se /ss /sc sortnb3.btl
+--}}}  
+--{{{  kilo, mega
+VAL K IS 1024:
+VAL M IS K*K:
+--}}}  
+--{{{  HIGH, LOW
+VAL HIGH IS 0:
+VAL LOW IS 1:
+--}}}  
+--{{{  problem size
+VAL string.length IS 80:
+VAL n IS 2:  -- number of B003s for a real test
+--}}}  
+--{{{  hardware description - 4*n processors on n B003s mixed priority
+--{{{  Network many B003s
+VAL number.of.B003s IS n:
+VAL number.of.transputers IS 4*number.of.B003s:
+VAL number.of.elements IS string.length:
+VAL elements.per.transputer IS number.of.elements/number.of.transputers:
+VAL remaining.elements IS number.of.elements\number.of.transputers:
+VAL elements.on.root IS elements.per.transputer + remaining.elements:
+
+-- a sequence of identical B003 boards:
+[number.of.B003s][4]NODE B003.t:
+
+-- host connection:
+ARC Hostlink:
+
+NETWORK
+  DO
+    -- host connection
+    CONNECT B003.t[0][0][link][0] TO HOST WITH Hostlink
+
+    -- links used going out to next board:
+    DO i = 0 FOR number.of.B003s - 1
+      CONNECT B003.t[i][1][link][1] TO B003.t[i+1][0][link][0]
+
+    -- links used coming back from next board
+    DO i = 0 FOR number.of.B003s - 1
+      CONNECT B003.t[i][2][link][0] TO B003.t[i+1][3][link][1]
+
+    -- internal wiring and identification of the B003s
+    DO i = 0 FOR number.of.B003s
+      DO j = 0 FOR 4
+        DO
+	  CONNECT B003.t[i][j][link][2] TO B003.t[i][(j+1)\4][link][3]
+	  SET B003.t[i][j] (type, memsize := "T414", 256*K)
+:
+--}}}  
+--{{{  Mapping 
+-- Note that different subsets of the connections are used on the
+-- first board, the last board, and the middle boards.
+-- The processors are connected into a single ring, with numbers 0,1
+-- on each board on the outward direction and numbers 2,3 on the return.
+-- The processes are split into equal size groups with the remainder
+-- bundled in to the first group. Groups of processes are then
+-- allocated onto processors round the ring.
+
+-- On each processor, processes doing external communication are run
+-- at HIGH priority, and the others at LOW priority.
+
+NODE inout.p:
+[number.of.elements]NODE pipe.element.p:
+MAPPING
+  DO
+    MAP inout.p ONTO B003.t[0][0] PRI HIGH
+    DO i = 0 FOR elements.on.root - 1
+      MAP pipe.element.p[i] ONTO B003.t[0][0] PRI LOW
+    VAL i IS elements.on.root - 1:
+    MAP pipe.element.p[i] ONTO B003.t[0][0] PRI HIGH
+
+    VAL half IS number.of.transputers / 2:
+    DO j = 1 FOR number.of.transputers - 1
+      VAL first.element.here IS remaining.elements + (j*elements.per.transputer):
+      VAL last.element.here IS first.element.here + (elements.per.transputer-1):
+      IF
+        --{{{  outward half
+        j < half
+	  VAL l IS j\2:
+	  VAL k IS j/2:
+	  DO
+	    VAL i IS first.element.here:
+	    MAP pipe.element.p[i] ONTO B003.t[k][l] PRI HIGH
+	    VAL i IS last.element.here:
+	    MAP pipe.element.p[i] ONTO B003.t[k][l] PRI HIGH
+	    DO p = 1 FOR elements.per.transputer - 2
+	      VAL i IS first.element.here + p:
+	      MAP pipe.element.p[i] ONTO B003.t[k][l] PRI LOW
+        --}}}  
+        --{{{  return half
+        TRUE
+	  VAL l IS (j\2)+2:
+	  VAL k IS (half-1)-(j/2):
+	  DO
+	    VAL i IS first.element.here:
+	    MAP pipe.element.p[i] ONTO B003.t[k][l] PRI HIGH
+	    VAL i IS last.element.here:
+	    MAP pipe.element.p[i] ONTO B003.t[k][l] PRI HIGH
+	    DO p = 1 FOR elements.per.transputer - 2
+	      VAL i IS first.element.here + p:
+	      MAP pipe.element.p[i] ONTO B003.t[k][l] PRI LOW
+        --}}}  
+
+        -- Note that j is an absolute processor number in pipe order
+        --           k is board number within configuration
+        --           l is processor number within board
+:
+--}}}  
+--}}}  
+--{{{  Code
+#INCLUDE "hostio.inc" --
+#INCLUDE "sorthdr.inc" --
+#USE "inout.cah"
+#USE "element.cah"
+--}}}  
+#INCLUDE "sortsoft.inc" --

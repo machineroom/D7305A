@@ -1,0 +1,40 @@
+#INCLUDE "hostio.inc" --
+#USE "hostio.lib"
+#USE "callc.lib"
+
+#PRAGMA TRANSLATE cfunc "c_func"
+
+#PRAGMA EXTERNAL "INT FUNCTION cfunc(VAL INT gsb, x, check) = 200"
+
+PROC test(CHAN OF SP fs, ts, []INT freemem)
+  INT gsb, required.size:
+  VAL static.size IS 4000:
+  VAL heap.size IS 4000:
+  [static.size]INT static.area:
+  [heap.size]INT heap.area:
+  SEQ
+    so.write.string.nl (fs, ts, "AREAS BIG ENOUGH TEST")
+    init.static(static.area, required.size, gsb)
+    IF
+      required.size > static.size
+        so.write.string.nl (fs, ts, "error initialising static")
+      TRUE
+        INT fail:
+        SEQ
+	  init.heap(gsb, heap.area)
+	  fail := cfunc(gsb, 2000, 0)
+	  IF
+	    fail = 0
+	      SEQ
+	        fail := cfunc(gsb, 2000, 1)
+	        IF
+		  fail = 0
+		    so.write.string.nl (fs, ts, "successful test")
+		  TRUE
+		    so.write.string.nl (fs, ts, "test failed")
+	    TRUE 
+	      so.write.string.nl (fs, ts,  "malloc failed")
+    terminate.heap.use(gsb)
+    terminate.static.use(gsb)
+    so.exit(fs, ts, sps.success)
+:

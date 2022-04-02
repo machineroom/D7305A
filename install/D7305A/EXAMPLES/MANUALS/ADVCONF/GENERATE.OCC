@@ -1,0 +1,9 @@
+-- V1.00
+
+-- Dummy structure for PROC Generate
+
+PROC Generate( [2]CHAN OF BYTE Out )
+  PAR
+    Out[0] ! 0 (BYTE)
+    Out[1] ! 1 (BYTE)
+:

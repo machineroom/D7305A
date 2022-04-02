@@ -1,0 +1,27 @@
+PROC hello1(VAL INT num, VAL[]BYTE hello.messb, CHAN OF INT question, answer)
+  VAL hello.messa IS "This is the ":
+  VAL hello.messc IS " processor on the B003":
+  VAL hello.messd IS " processor closing down":
+  --{{{  writes
+  PROC writes(VAL[]BYTE str)
+    VAL len IS SIZE str:
+    SEQ i = 0 FOR len
+      answer ! INT str[i]
+  :
+  --}}}  
+  INT ch:
+  SEQ
+    question ? ch
+    WHILE ch = num
+      SEQ
+        --{{{  say who we are
+        writes(hello.messa)
+        writes(hello.messb)
+        writes(hello.messc)
+        answer ! INT '*n'
+        --}}}  
+        question ? ch
+    writes(hello.messb)
+    writes(hello.messd)
+    answer ! INT '*n'
+:

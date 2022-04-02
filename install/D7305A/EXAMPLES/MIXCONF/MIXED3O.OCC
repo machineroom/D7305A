@@ -1,0 +1,22 @@
+#INCLUDE "hostio.inc"
+#USE "hostio.lib"
+PROC occam.program(CHAN OF SP fs, ts, CHAN OF INT32 data.in, data.out)
+  INT32 x :
+  SEQ
+    so.write.string.nl(fs, ts, "This is the occam program, sending 99")
+
+    data.out ! 99(INT32)
+    so.write.string.nl(fs, ts, "This is the occam program, sent 99")
+
+    so.write.string.nl(fs, ts, "This is the occam program, receiving x")
+    data.in ? x
+
+    so.write.string   (fs, ts, "This is the occam program, received x = ")
+    so.write.int      (fs, ts, INT x, 0)
+    so.write.nl       (fs, ts)
+
+    INT32 any :
+    data.in ? any  -- synchronise shutdown
+
+    so.exit           (fs, ts, sps.success)
+:

@@ -1,0 +1,46 @@
+
+
+The occam example programs for idebug may be found in two directories
+within the toolset example directory:
+
+
+------------------------------------------------------------------------------
+
+
+examples - manuals - idebug
+===========================
+
+Contains the source of worked examples in the idebug documentation.
+
+
+debug.occ           Example of use of debug support procedures
+
+facs.occ            Simple parallel program using channels, for demonstrating
+                    interactive and postmortem debugging.
+
+scope.occ           Example demonstrating occam scope rules
+
+modify.occ          Example of modifying memory with debugger
+
+deadlock.occ        Simple example of a deadlock.
+
+deadfix.occ         Simple example of a deadlock modified for easy debugging
+
+
+------------------------------------------------------------------------------
+
+
+examples - idebug
+=================
+
+Contains the source of additional examples.
+
+
+master.occ          Master process for opair.pgm
+
+mult.occ            Multiplier process for opair.pgm
+
+opair.pgm           Configuration source file for network debugging example
+
+
+------------------------------------------------------------------------------

@@ -1,0 +1,9 @@
+--
+-- linker command file "harness.lah"
+--
+harness.tah
+hello2.tax
+hostio.lib
+convert.lib
+#INCLUDE clibs.lnk
+#INCLUDE occama.lnk

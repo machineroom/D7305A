@@ -1,0 +1,67 @@
+--{{{  kilo, mega
+VAL K IS 1024:
+VAL M IS K*K:
+--}}}
+--{{{  Network description
+-- This is a ring with fewer processors than n
+VAL p IS 4:
+VAL number.of.transputers IS p:
+[p]NODE Ring:
+ARC Hostlink:
+NETWORK
+  DO
+    CONNECT Ring[0][link][0] TO HOST WITH Hostlink
+    DO i = 0 FOR p - 1
+      CONNECT Ring[i][link][2] TO Ring[i + 1][link][1]
+    CONNECT Ring[p - 1][link][0] TO Ring[0][link][3]
+    DO i = 0 FOR p
+      SET Ring[i] (type, memsize := "T414", 1*M)
+:
+--}}}
+--{{{  problem size
+VAL p IS number.of.transputers:
+VAL n IS p + 10:
+--VAL m IS 10:
+--VAL n IS (2*p)+m:
+--}}}
+--{{{  Placement of code on 4 processors
+-- Most processors get a single process, the rest are heaped together!
+NODE Hostpass.p:
+[n]NODE Multpass.p:
+MAPPING
+  DO
+    MAP Hostpass.p ONTO Ring[0]
+    --{{{  Multpass over the ring
+    DO
+      DO j = 0 FOR n
+	IF
+	  j < p
+	    MAP Multpass.p[j] ONTO Ring[j]
+	  TRUE
+	    MAP Multpass.p[j] ONTO Ring[p-1]
+    --}}}
+:
+--}}}
+#INCLUDE "hostio.inc" --
+--{{{  Code (Same interfaces as tree)
+#USE "hostpass.cah"
+#USE "multpass.cah"
+--}}}
+CONFIG
+  -- n processes are connected in a ring, with a host supporter in the middle
+  -- n+1 channels provide uni-directional communication round the ring
+  --{{{  Software configuration
+  
+  CHAN OF SP HostInput, HostOutput:
+  PLACE HostInput, HostOutput ON Hostlink:
+  [n+1]CHAN OF INT32 Ringchan:
+  PAR
+    PROCESSOR Hostpass.p
+      HostPass (HostInput, HostOutput, [Ringchan[n]], [Ringchan[0]])
+    PAR i = 0 FOR n
+      PROCESSOR Multpass.p[i]
+	In IS [Ringchan[i]]:
+	Out IS [Ringchan[i+1]]:
+	MultPass (In, Out)
+  --}}}
+:

@@ -1,0 +1,35 @@
+----------------------------------------
+--
+--  Debugger example:  master.occ (forms opair)
+--
+--  Forms one of two parallel occam processes
+--  on different processors (see opair.pgm).
+--
+----------------------------------------
+
+
+#INCLUDE "hostio.inc"
+#USE     "hostio.lib"
+
+
+PROC master.entry (CHAN OF SP fs, ts,
+                   CHAN OF INT32 from.mult, to.mult)
+  SEQ
+    SEQ i = 0 FOR 5
+      INT32 val :
+      SEQ
+        so.write.string (fs, ts, "Sending ")
+        so.write.int (fs, ts, i, 2)
+        so.write.string (fs, ts, "  -  ")
+
+        to.mult ! INT32 i
+        from.mult ? val
+
+        so.write.string (fs, ts, "Received ")
+        so.write.int32 (fs, ts, val, 2)
+        so.write.nl (fs, ts)
+
+    to.mult ! -1 (INT32)    --  tell mult we have finished
+
+    so.exit (fs, ts, sps.success)
+:

@@ -1,0 +1,33 @@
+------------------------------
+--
+--  Debugger example:  debug.occ
+--
+--  Example of debug support procedures when used with
+--  and without the debugger.
+--
+------------------------------
+
+
+#INCLUDE "hostio.inc"
+#USE     "hostio.lib"
+#USE     "debug.lib"
+
+
+PROC debug.entry (CHAN OF SP fs, ts, []INT free.memory)
+  BOOL x :
+  SEQ
+    --  FALSE will cause DEBUG.ASSERT to fail assertion test
+    x := FALSE
+
+    so.write.string.nl (fs, ts, "Program started")
+
+    DEBUG.MESSAGE ("A debug message only within the debugger")
+
+    so.write.string.nl (fs, ts, "Program being halted by DEBUG.ASSERT ()")
+    DEBUG.ASSERT (x)
+
+    so.write.string.nl (fs, ts, "Program being halted by DEBUG.STOP ()")
+    DEBUG.STOP ()
+
+    so.exit (fs, ts, sps.success)
+:

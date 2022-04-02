@@ -1,0 +1,9 @@
+#INCLUDE "hostio.inc" --
+#USE "hostio.lib"
+PROC ex.codesc (CHAN OF SP from.isv, to.isv, []INT freespace)
+  BYTE bchar, bres:
+  SEQ
+    so.write.string (from.isv, to.isv,
+     "This is a CODE SC loaded and KERNEL.RUNned - any key to continue")
+    so.getkey (from.isv, to.isv, bchar, bres)
+:

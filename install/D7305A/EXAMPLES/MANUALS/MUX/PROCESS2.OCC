@@ -1,0 +1,8 @@
+-- Dummy structure for process 2
+
+#INCLUDE "hostio.inc"
+#USE "hostio.lib"
+
+PROC process2(CHAN OF SP fs, ts)
+  so.write.string.nl(fs, ts, "This is process 2")
+:

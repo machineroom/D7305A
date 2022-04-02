@@ -1,0 +1,24 @@
+PROC MultPass ([]CHAN OF INT32 Input, Output)
+
+  IF
+    ((SIZE Input) = (SIZE Output))
+      WHILE TRUE
+        INT32 InputValue :
+        ALT InputIndex = 0 FOR SIZE Input
+          Input[InputIndex] ? InputValue
+            INT32 OutputValue :
+            SEQ
+              OutputValue := InputValue + (1 (INT32))
+              PAR
+                SEQ Index = InputIndex + 1 FOR (SIZE Output) - 1
+                  Output[Index \ (SIZE Output)] ! OutputValue
+
+                SEQ Index = InputIndex + 1 FOR (SIZE Input) - 1
+                  INT32 Value :
+                  ALT Index = InputIndex + 1 FOR (SIZE Input) - 1
+                    Input[Index \ (SIZE Input)] ? Value
+                      InputValue := InputValue + Value
+
+              Output[InputIndex] ! InputValue
+
+:

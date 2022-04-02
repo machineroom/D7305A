@@ -1,0 +1,125 @@
+------------------------------
+--
+--  Debugger example:  facs.occ
+--
+--  Uses 5 processes to compute the sum of the squares of the
+--  first N factorials using a rather inefficient algorithm.
+--
+--  Plumbing:
+--
+--   - > feed -> facs -> square -> sum -> control <--> User IO
+--  |                                        |
+--   ----------------------------------------
+--
+------------------------------
+
+
+#INCLUDE "hostio.inc"
+#USE     "hostio.lib"
+
+
+PROC facs.entry (CHAN OF SP fs, ts, []INT free.memory)
+
+  VAL stop.real    IS -1.0 (REAL64) :
+  VAL stop.integer IS -1 :
+
+  --{{{  FUNC factorial  -  compute factorial
+  REAL64 FUNCTION factorial (VAL INT n)
+    REAL64 result :
+    VALOF
+      SEQ
+        result := 1.0 (REAL64)
+        SEQ i = 1 FOR n
+          result := result * (REAL64 ROUND i)
+      RESULT result
+  :
+  --}}}
+  --{{{  PROC feed       -  source stream of integers
+  PROC feed (CHAN OF INT in, out)
+    INT n :
+    SEQ
+      in ? n
+      SEQ i = 0 FOR n
+        out ! i
+      out ! stop.integer
+  :
+  --}}}
+  --{{{  PROC facs       -  generate stream of factorials
+  PROC facs (CHAN OF INT in, CHAN OF REAL64 out)
+    INT x :
+    REAL64 fac :
+    SEQ
+      in ? x
+      WHILE x <> stop.integer
+        SEQ
+          fac := factorial (x)
+          out ! fac
+          in ? x
+      out ! stop.real
+  :
+  --}}}
+  --{{{  PROC square     -  generate stream of squares
+  PROC square (CHAN OF REAL64 in, out)
+    REAL64 x, sq :
+    SEQ
+      in ? x
+      WHILE x <> stop.real
+        SEQ
+          sq := x * x
+          out ! sq
+          in ? x
+      out ! stop.real
+  :
+  --}}}
+  --{{{  PROC sum        -  sum input
+  PROC sum (CHAN OF REAL64 in, out)
+    REAL64 total, x :
+    SEQ
+      total := 0.0 (REAL64)
+      in ? x
+      WHILE x <> stop.real
+        SEQ
+          total := total + x
+          in ? x
+      out ! total
+  :
+  --}}}
+  --{{{  PROC control    -  user interface and control
+  PROC control (CHAN OF SP fs, ts,
+                CHAN OF REAL64 result.in,
+                CHAN OF INT n.out)
+    REAL64 value :
+    INT n :
+    BOOL error :
+    SEQ
+      so.write.string.nl (fs, ts, "Sum of the first n squares of factorials")
+
+      error := TRUE
+      WHILE error
+        SEQ
+          so.write.string (fs, ts, "Please type n: ")
+          so.read.echo.int (fs, ts, n, error)
+          so.write.nl (fs, ts)
+
+      so.write.string.nl (fs, ts, "Calculating factorials ...")
+
+      n.out ! n
+      result.in ? value
+
+      so.write.string (fs, ts, "The result was: ")
+      so.write.real64 (fs, ts, value, 0, 0)    --  free format
+      so.write.nl (fs, ts)
+      so.exit (fs, ts, sps.success)
+  :
+  --}}}
+
+  CHAN OF REAL64 facs.to.square, square.to.sum, sum.to.control :
+  CHAN OF INT feed.to.facs, control.to.feed :
+
+  PAR
+    feed (control.to.feed, feed.to.facs)
+    facs (feed.to.facs, facs.to.square)
+    square (facs.to.square, square.to.sum)
+    sum (square.to.sum, sum.to.control)
+    control (fs, ts, sum.to.control, control.to.feed)
+:

@@ -1,0 +1,51 @@
+--{{{  PROC inout
+#INCLUDE "sorthdr.inc" --
+#INCLUDE "hostio.inc" --
+PROC inout (CHAN OF SP fs, ts,
+	    CHAN OF LETTERS from.pipe, to.pipe)
+  #USE "hostio.lib"
+  [number.elements - 1]BYTE line, sorted.line:
+  INT line.length, sorted.length:
+  BYTE result:
+  BOOL going:
+  SEQ
+    so.write.string.nl (fs, ts, "Enter lines of text to be sorted - empty line terminates")
+    going := TRUE
+    WHILE going
+      SEQ
+	so.read.echo.line (fs, ts, line.length, line, result)
+	IF
+	  result <> spr.ok
+	    STOP
+	  TRUE
+	    so.write.nl (fs, ts)
+	PAR
+	  SEQ
+	    IF
+	      (line.length = 0)
+		to.pipe ! terminate
+	      TRUE
+		SEQ
+		  SEQ i = 0 FOR line.length
+		    to.pipe ! letter; line[i]
+		  to.pipe ! end.of.letters
+	  BOOL end.of.line:
+	  SEQ
+	    end.of.line := FALSE
+	    sorted.length := 0
+	    WHILE NOT end.of.line
+	      from.pipe ? CASE
+		terminate
+		  SEQ
+		    end.of.line := TRUE
+		    going := FALSE
+		letter; sorted.line[sorted.length]
+		  sorted.length := sorted.length + 1
+		end.of.letters
+		  SEQ
+		    so.write.string.nl (fs, ts,
+		      [sorted.line FROM 0 FOR sorted.length])
+		    end.of.line := TRUE
+    so.exit (fs, ts, sps.success)
+:
+--}}}

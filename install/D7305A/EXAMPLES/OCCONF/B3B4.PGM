@@ -1,0 +1,43 @@
+--{{{  network
+VAL K IS 1024:
+VAL M IS K*K:
+ARC hostlink:
+NODE master:
+[4]NODE B003:
+NETWORK
+  DO
+    CONNECT master[link][0] TO HOST WITH hostlink
+    CONNECT master[link][2] TO B003[0][link][0]
+    SET master (type, memsize := "T800", 2*M)
+    DO i = 0 FOR 4
+      DO
+        SET B003[i] (type, memsize := "T414", 256*K)
+        CONNECT B003[i][link][2] TO B003[(i+1)\4][link][3]
+    CONNECT B003[2][link][1] TO B003[0][link][1]
+:
+--}}}  
+#INCLUDE "hostio.inc" --
+#USE "b004td.c8h"
+#USE "hello0.c4h"
+#USE "hello1.c4h"
+CHAN OF SP topc, frompc:
+PLACE topc, frompc ON hostlink:
+CHAN OF INT tonet, fromnet:
+[3]CHAN OF INT toroot, fromroot:
+CONFIG
+  PLACED PAR
+    PROCESSOR master --(the B004, B008+TRAM, or whatever)
+      TermDriver (frompc, topc, fromnet, tonet)
+    PROCESSOR B003[0]
+      --{{{  hello0 full version
+      hello0(fromroot[0],fromroot[1],fromroot[2],
+	     toroot[0],toroot[1],toroot[2],
+	     tonet, fromnet)
+      --}}}  
+    --{{{  other three
+    PLACED PAR j = 0 FOR 3
+      PROCESSOR B003[j+1]
+        VAL message IS ["second","third ","fourth"]:
+        hello1(j+2, message[j], fromroot[j], toroot[j])
+    --}}}  
+:

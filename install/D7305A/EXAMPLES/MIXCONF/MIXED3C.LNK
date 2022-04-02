@@ -1,0 +1,11 @@
+--
+-- linker indirect file "mixed3c.lnk"
+
+-- Use type 3 entry point:
+#mainentry PROC.ENTRY.RC
+
+-- This is used to give information for the debugger
+#reference information%module
+
+mixed3c.tco
+#INCLUDE clibs.lnk

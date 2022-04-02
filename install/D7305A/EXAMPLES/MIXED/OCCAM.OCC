@@ -1,0 +1,25 @@
+#INCLUDE "hostio.inc"
+PROC the.main.process (CHAN OF SP fs, ts, []INT free.memory)
+  #USE "hostio.lib"
+  --{{{  PROC the.C.process (CHAN OF SP fs, ts, free.memory)
+  PROC the.C.process (CHAN OF SP fs, ts, []INT free.memory)
+    -- Note a procedure was only used to hide these details
+    -- A C process could be called in-line if required
+    -- The current linker restricts the use to one C program per transputer
+    #USE "centry.lib"       -- contains C predefines for types 1,2 and 3
+    [620]INT C.stack:       -- check hello.map for stack size
+    SEQ
+      MAIN.ENTRY (fs, ts, free.memory, C.stack) -- call the type-1 C program
+  :
+  --}}}
+  SEQ
+    so.write.string.nl (fs, ts, "Occam: A message from the world of occam")
+    so.write.string.nl (fs, ts, "Occam: Now over to our friendly C program")
+
+    the.C.process (fs, ts, free.memory)
+
+    so.write.string.nl (fs, ts, "Occam: The C program killed the server")
+    so.write.string.nl (fs, ts, "Occam: tut tut !")
+    so.write.string.nl (fs, ts, "Occam: The End")
+    so.exit (fs, ts, sps.success)
+:

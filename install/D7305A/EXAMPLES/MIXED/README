@@ -1,0 +1,116 @@
+SUBDIRECTORY mixed
+
+These examples show various techniques for mixing C and occam
+
+The first group use procedures from the library "centry.lib" which is in
+the INMOS C toolset products.  The first 3 pairs are C subroutines called
+from occam using different types of interface. These interfaces are unchanged
+from earlier versions of the occam and C toolsets. Users will need to compile
+both sources appropriately and then link them with suitable library code,
+and collect them into bootable programs.
+A linker indirect file corresponding to each main program is also provided.
+
+Always use the tools corresponding to the most recently revised toolset -
+some of the original tools did not cater for mixed language programs properly.
+
+hello.c		Calling C from occam. For type 1 interface
+occam.occ	Type 1 call using MAIN.ENTRY to call hello.c
+occam.lah	Linker indirect file
+
+	This example is built for any 32-bit processor by writing:
+	icc hello.c -ta -o hello.tax
+	oc occam.occ -ta -h -o occam.tah
+	ilink -f occam.lah -ta -h -o occam.cah
+	icollect occam.cah -t -o occam.bah
+
+
+hello2.c	Calling C from occam. For type 2 interface, using occam
+		channels for communication
+harness.occ	Type 2 call using PROC.ENTRY to call hello2.c
+harness.lah	Linker indirect file
+
+	This example is built for any 32-bit processor by writing:
+	icc hello2.c -ta -o hello2.tax
+	oc harness.occ -ta -h -o harness.tah
+	ilink -f harness.lah -ta -h -o harness.cah
+	icollect harness.cah -t -o harness.bah
+
+
+slave.c		Calling C from occam. Type 3. No C use of host io interface.
+		so use clibsrd.lnk when linking.
+master.occ	Type 3 call using PROC.ENTRY.RC to call slave.c
+master.lah	Linker indirect file
+
+	This example is built for any 32-bit processor by writing:
+	icc slave.c -ta -o slave.tax
+	oc master.occ -ta -h -o master.tah
+	ilink -f master.lah -ta -h -o master.cah
+	icollect master.cah -t -o master.bah
+
+
+The second group use procedures from the library "callc.lib". This method
+is introduced in the new occam toolset and provides closer control of the
+setting up of work space when a C routine is called from occam. It should
+be used to put an occam wrapping round any C program that is to be
+called from an occam main program.
+
+Occam calling C:
+
+f.c		A simple C function which may be called from occam
+c.occ		An occam program which calls f
+c.lah		Linker indirect file
+
+	This example is built for any 32-bit processor by writing:
+	oc c.occ -ta -h -o c.tah
+	icc f.c -ta -o f.tax
+	ilink -f c.lah -o c.cah -h -ta
+	icollect -t c.cah -o c.bah
+
+
+csubfunc.c	A C function to show calling from an occam program
+callc.occ	An occam program which calls the C function csubfunc
+callc.lax	Linker indirect file
+
+	This example is built for any 32-bit processor by writing:
+	oc callc.occ -ta -x -o callc.tax
+	icc csubfunc.c -ta -o csubfunc.tax
+	ilink -f callc.lax -o callc.cax -x -ta
+	icollect -t callc.cax -o callc.bax
+
+
+C calling occam:
+
+ocfunc.occ	A simple occam FUNCTION that may be called from C
+caloccam.c	A C program which calls ocfunc
+caloccam.lax	Linker indirect file
+
+	This example is built for any 32-bit processor by writing:
+	icc caloccam.c -o caloccam.tax -ta
+	oc ocfunc.occ -o ocfunc.tax -ta -x
+	ilink -f caloccam.lax -o caloccam.cax -ta -x
+	icollect -t caloccam.cax -o caloccam.bax
+
+
+occparam.occ	An occam module containing a function and a procedure with
+		parameters of all the supported types. This may be compiled
+		for any transputer type or class and then called from a C
+		program similarly compiled
+calocc2.c	A C program which calls the occam function and procedure
+		defined above. Contains conditional compilation directives
+		to cope with the differences between 32bit and 16bit
+		transputers
+calocc2.lax	Linker indirect file
+
+	This example is built for any 32-bit processor by writing:
+	icc calocc2.c -o calocc2.tax -ta
+	oc occparam.occ -o occparam.tax -ta -x
+	ilink -f calocc2.lax -o calocc2.cax -ta -x
+	icollect -t calocc2.cax -o calocc2.bax
+
+	This example is built for any 16-bit processor by writing:
+	icc calocc2.c -o calocc2.t2x -t2
+	oc occparam.occ -o occparam.t2x -t2 -x
+	ilink -f calocc2.l2x -o calocc2.c2x -t2 -x
+	icollect -t calocc2.c2x -o calocc2.b2x
+
+

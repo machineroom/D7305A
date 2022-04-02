@@ -1,0 +1,7 @@
+#INCLUDE "hostio.inc"
+PROC hello.world (CHAN OF SP fs, ts, []INT mem)
+  #USE "hostio.lib"
+  SEQ
+    so.write.string.nl (fs, ts, "Hello world!")
+    so.exit (fs, ts, sps.success)
+:

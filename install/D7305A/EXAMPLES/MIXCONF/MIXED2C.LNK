@@ -1,0 +1,11 @@
+--
+-- linker indirect file "mixed2c.lnk"
+
+-- Use type 2 entry point:
+#mainentry PROC.ENTRY
+
+-- This is used to give information for the debugger
+#reference information%module
+
+mixed2c.tco
+#INCLUDE clibs.lnk

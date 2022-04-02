@@ -1,0 +1,53 @@
+#INCLUDE "hostio.inc"
+PROC call.program (CHAN OF SP fs, ts, []INT free.memory)
+
+  -- Variables for holding code and entry and workspace
+  -- data read from file
+  [256]BYTE code:         
+  INT code.length, entry.offset, work.space.size:
+  INT vector.space.size:
+  INT result:             -- Variable used by process
+  VAL debugging IS TRUE:  -- Value param for process
+  VAL no.params IS 7:     -- No. of parameter slots
+  -- Need 1 slot per parameter + 1 for the size of the
+  -- array parameter + 1 for the vector space pointer
+
+  SEQ
+    --  Read in code and data about code
+
+    -- Slice up memory vector for use by process
+    -- Reserve work space requirement for process
+    []INT ws IS [free.memory FROM 0 FOR
+            work.space.size + (no.params + 2)]:
+    -- Reserve vector space requirement for process
+    []INT vs IS [free.memory FROM SIZE ws FOR
+                 vector.space.size]:
+    -- Reserve remainder of memory for use
+    -- as process parameter buffer
+    []INT buffer IS
+      [free.memory FROM (SIZE ws) + (SIZE vs) FOR
+       (SIZE free.memory) - ((SIZE ws) + (SIZE vs))]:
+    SEQ
+      -- Reserve slot in ws for parameters 
+      []INT parameter IS
+        [ws FROM work.space.size + 1 FOR no.params]:
+      SEQ
+        LOAD.INPUT.CHANNEL (parameter[0], fs)
+        LOAD.OUTPUT.CHANNEL(parameter[1], ts)
+        -- Retype buffer to take its address
+        []BYTE b.buffer RETYPES buffer:
+        LOAD.BYTE.VECTOR(parameter[2], b.buffer)
+        parameter[3] := SIZE buffer
+        -- Store VAL BOOL parameter
+        parameter[4] := INT debugging
+        -- Store address of INT parameter
+        []BYTE b.result RETYPES result:
+        LOAD.BYTE.VECTOR(parameter[5], b.result)
+        -- Store pointer to vector space
+        []BYTE b.vs RETYPES vs: 
+        LOAD.BYTE.VECTOR(parameter[6], b.vs)
+      -- Run the process
+      KERNEL.RUN([code FROM 0 FOR code.length],
+                 entry.offset, ws, no.params)
+:
+

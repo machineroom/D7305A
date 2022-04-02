@@ -1,0 +1,195 @@
+#OPTION "V"  -- no vector space
+#COMMENT "Fixed point maths library, V1.3 04/03/91"
+#COMMENT "(c) Copyright INMOS Limited 1988"
+#INCLUDE "t4fhdr.inc"
+#PRAGMA TRANSLATE exp "exp%O"
+#PRAGMA TRANSLATE IncExp "IncExp%O"
+#PRAGMA TRANSLATE FIX "FIX%O"
+#PRAGMA TRANSLATE ReFloat "ReFloat%O"
+#PRAGMA TRANSLATE FracDiv "FracDiv%O"
+#USE "utilstb.lib"
+
+--{{{  history
+-- V1.0 1-Jul-88
+-- V1.1 11-Oct-88
+-- Added OPTION "V"; V1.2 27-Mar-90 SRH
+-- Moved the reduced exponential routine to outside the hyperbolics in
+-- order to save code space and improve maintenance; also added some more
+-- comments; V1.3 4-Mar-91 SRH
+--}}}
+
+--{{{  exp
+REAL32 FUNCTION exp (VAL REAL32 X)
+
+  -- exponential without input guards, for hyperbolic functions
+
+  REAL32 RWork :
+  VALOF
+    VAL REAL32 InvLn2 RETYPES #3FB8AA3B(INT32)  : -- 1/log(2) in floating poin
+    VAL REAL32 C1     RETYPES #3F318000(INT32)  : -- C1 + C2 = Ln(2)
+    VAL REAL32 C2     RETYPES #B95E8083(INT32)  :
+    VAL INT    N      IS INT ROUND (X * InvLn2) :   -- integer part of X/ln(2)
+    REAL32 XWork :
+    SEQ
+      VAL REAL32 XN IS REAL32 ROUND N :
+      XWork := ( X - (XN * C1)) - (XN * C2) -- higher precision remainder
+      --{{{  compute exponential of remainder
+      VAL P1   IS #00885308(INT) :
+      VAL P0   IS #1FFFFFFF(INT) :
+      VAL Q1   IS #0665FAD9(INT) :
+      VAL Half IS #40000000(INT) :
+      INT G, Z :
+      SEQ
+        G := FIX (XWork)
+        Z := FRACMUL (G, G)
+        G := FRACMUL (G, FRACMUL (Z, P1) + P0)
+        RWork := ReFloat(Half + FracDiv(G, (FRACMUL(Z, Q1) + Half) - G))
+      --}}}
+      --{{{  construct result
+      INT RExp, RTemp :
+      INT RWork.i RETYPES RWork :
+      SEQ
+        INT T :
+        RTemp, RExp, T := UNPACKSN (RWork.i)
+        RWork.i := ROUNDSN (RExp + (N + 1), RTemp, 0)
+      --}}}
+    RESULT RWork
+:
+--}}}
+--{{{  SINH  (fixed point)
+REAL32 FUNCTION SINH (VAL REAL32 X)
+
+  REAL32 RWork :
+  VALOF
+    --{{{  definitions and variables
+    VAL INT    XMax   IS #42B2CCCD(INT) : -- 89.400001525878906250; a little less than ln(Inf - 1) + LnV
+    VAL INT    XBig   IS #41051EB8(INT) : -- 8.319999694824218750; BitsInFrac*(Ln2/2)
+    VAL INT    Eps    IS #39800000(INT) : -- 0.0002441406250
+    VAL REAL32 VBy2M1 RETYPES #37680897(INT32) : -- 0.00001383027756673982366919517517089843750
+    VAL REAL32 LnV    RETYPES #3F317300(INT32) : -- 0.69316101074218750
+    VAL INT    X.I    RETYPES X :
+    VAL INT    XW.i   IS      X.I /\ (~(MOSTNEG INT)) :
+    VAL REAL32 XWork  RETYPES XW.i :  -- XWork = |X|
+    --}}}
+    IF
+      XW.i > RealInf -- X is NaN
+        RWork := X
+      XW.i > XMax
+        --{{{  + or - Inf
+        IF
+          X.I < 0
+            -- RWork := - RInf
+            RWork := MINUSX(RInf)
+          TRUE
+            RWork := RInf
+        --}}}
+      XW.i < Eps
+        RWork := X
+      XW.i > XBig
+        --{{{  modify argument and use exponential
+        VAL EX IS exp(XWork - LnV) :
+        IF
+          X.I < 0
+            RWork := - (EX + (EX * VBy2M1))
+          TRUE
+            RWork := EX + (EX * VBy2M1)
+        --}}}
+      XW.i >= unity
+        --{{{  use exponential and modify result
+        VAL EX IS exp(XWork) :
+        IF
+          X.I < 0
+            RWork := - IncExp(EX - (One/EX), -1)
+          TRUE
+            RWork := IncExp(EX - (One/EX), -1)
+        --}}}
+      TRUE
+        --{{{  use fixed-point rational approximation
+        INT G :
+        SEQ
+          G := FIX (XWork)
+          G := FRACMUL (G, G)    -- polynomial in XWork^2
+          RWork := ReFloat (FRACMUL (FRACMUL (FRACMUL (#0006AEC6, G) +
+                            #0110F45E, G) + #15555AF7, G))
+          IF
+            X.I < 0
+              RWork := - (XWork + (RWork * XWork))
+            TRUE
+              RWork := XWork + (RWork * XWork)
+        --}}}
+    RESULT RWork
+:
+--}}}
+--{{{  COSH  (fixed point)
+REAL32 FUNCTION COSH (VAL REAL32 X)
+
+  REAL32 RWork :
+  VALOF
+    --{{{  definitions and variables
+    VAL INT    XMax   IS #42B2CCCD(INT) : -- 89.400001525878906250; a little less than ln(Inf - 1) + LnV
+    VAL INT    XBig   IS #41051EB8(INT) : -- 8.319999694824218750; BitsInFrac*(Ln2/2)
+    VAL INT    Eps    IS #39800000(INT) : -- 0.0002441406250
+    VAL REAL32 LnV    RETYPES #3F317300(INT) : -- 0.69316101074218750
+    VAL REAL32 VBy2M1 RETYPES #37680897(INT) : -- 0.00001383027756673982366919517517089843750
+    VAL INT    X.I    RETYPES X :
+    VAL INT    XW.i   IS X.I /\ (~(MOSTNEG INT)) :
+    VAL REAL32 XWork  RETYPES XW.i : -- XWork := |X|
+    --}}}
+    IF
+      XW.i > RealInf -- X is NaN
+        RWork := X
+      XW.i > XMax
+        RWork := RInf
+      XW.i > XBig
+        VAL EX IS exp(XWork - LnV) :
+        RWork := EX + (EX * VBy2M1)
+      TRUE
+        VAL EX IS exp(XWork) :
+        RWork := IncExp(EX + (One/EX), -1)
+    RESULT RWork
+:
+--}}}
+--{{{  TANH  (fixed point)
+REAL32 FUNCTION TANH (VAL REAL32 X)
+
+  REAL32 RWork :
+  VALOF
+    --{{{  definitions
+    VAL INT    XMax   IS #41051592(INT) : -- 8.31776618957519531250; ((BitsInFrac + 2)ln2)/2, see C&W p242.
+    VAL INT    Eps    IS #39800000(INT) : -- 0.0002441406250
+    VAL INT    Ln3By2 IS #3F0C9F54(INT) : -- 0.54930615425109863281250
+    VAL INT    X.I    RETYPES X :
+    VAL INT    XW.i   IS X.I /\ (~(MOSTNEG INT)) :
+    VAL REAL32 XWork  RETYPES XW.i : -- XWork = |X|
+    --}}}
+    IF
+      XW.i > RealInf -- X is NaN
+        RWork := X  -- transmit NaN
+      TRUE
+        SEQ
+          IF
+            XW.i > XMax
+              RWork := One
+            XW.i > Ln3By2
+              RWork := One - (Two/(One + exp (IncExp(XWork, 1))))
+            XW.i < Eps
+              RWork := XWork
+            TRUE
+              --{{{  fixed-point rational approximation
+              INT G :
+              SEQ
+                G := FIX (XWork)
+                G := FRACMUL (G, G) -- rational function of XWork^2
+                RWork := XWork + (ReFloat (FRACMUL (FracDiv (FRACMUL (#FFE09DCA,
+                                                                      G) + #E5A3A733,
+                         FRACMUL (#20000000, G) + #4F150CF5), G)) * XWork)
+              --}}}
+          IF
+            X.I < 0
+              RWork := - RWork
+            TRUE
+              SKIP
+    RESULT RWork
+:
+--}}}
+

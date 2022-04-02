@@ -1,0 +1,15 @@
+SUBDIRECTORY config
+
+The example in this subdirectory is that used in the Configurer chapter
+to illustrate use of conditional IF
+
+app.occ		The application
+buff.occ	The buffer process
+myprog.pgm	The configuration description file
+
+This example can be built by using imakef as follows
+
+	imakef myprog.btl
+	make -f myprog.mak
+
+When using an MS-DOS or VMS system, replace '-' by '/'

@@ -1,0 +1,275 @@
+#INCLUDE "hostio.inc" --
+PROC loadrxh (CHAN OF SP from.isv, to.isv, []INT freespace)
+  ----{{{COMMENT COMMENT notes
+  ----{{{  notes
+  --This tool can load and run a CODE SC (.rxh loadable code file)
+  --It will ask for the name of a program to load and will load and run it.
+  ----}}}
+  ----}}}
+  #USE "hostio.lib"
+  --{{{  other declarations
+  --{{{  fi. values
+  VAL fi.ok IS 0:
+  VAL fi.file.does.not.exist IS -1103:
+  VAL fi.file.not.closed IS -1110:
+  VAL fi.file.too.big IS -1111:
+  --}}}
+  VAL bpw IS 4:
+  --}}}
+  --{{{  load.rxx
+  PROC load.rxx (CHAN OF SP from.isv, to.isv,
+	     VAL []BYTE file.name,
+	     VAL BOOL has.bootstraps,
+	     INT code.size, []BYTE code.buffer,
+	     BOOL loaded.ok,
+	     INT work.space, param.space, vec.space, par.stack.space,
+	     INT entry.point, target, INT result)
+    --{{{  decls
+    INT32 codefile.strm:
+    [sp.max.readbuffer.size]BYTE buffer :
+    INT len.rest, code.ptr, size.to.come:
+    INT bytes.read:
+    INT size:
+    BOOL success :
+    BYTE bres:
+    --{{{  PROC read.int
+    PROC read.int (VAL INT offset, INT int)
+      [4]BYTE bint RETYPES int:
+      bint := [buffer FROM offset FOR 4]
+    :
+    --}}}
+    --}}}
+    SEQ
+      --{{{  open the file
+      so.open (from.isv, to.isv, file.name,
+	       spt.binary, spm.input, codefile.strm, bres)
+      success := bres = spr.ok
+      code.size := 0
+      --}}}
+      IF
+	--{{{  file open
+	success
+	  SEQ
+	    so.read (from.isv, to.isv, codefile.strm, bytes.read, buffer)
+	    IF
+	      has.bootstraps
+		--{{{  skip over the bootstraps
+		INT boot1.len, boot2.len, byte.zero:
+		SEQ
+		  boot1.len := INT buffer[0]
+		  read.int (boot1.len + 1, boot2.len)
+		  byte.zero := (boot1.len + 1) + (bpw + boot2.len)
+		  so.seek (from.isv, to.isv, codefile.strm, INT32 byte.zero,
+			   spo.start, bres)
+		  so.read (from.isv, to.isv, codefile.strm, bytes.read,
+			   buffer)
+		  result := INT bres
+		--}}}
+	      TRUE
+		result := fi.ok
+	    -- from here there is no difference between Loadable and Bootable
+	    --{{{  extract sizes, move rest of first bufferful
+	    INT version, pos, len.int.desc, len.compiler.id:
+	    SEQ
+	      vec.space := 0          -- default
+	      par.stack.space := -1   -- default flags no stack
+	      read.int (0, len.int.desc)
+	      pos := bpw + len.int.desc
+	      read.int (pos, len.compiler.id)
+	      pos := pos + (bpw + len.compiler.id)
+	      read.int (pos, target)
+	      pos := pos + bpw
+	      read.int (pos, version)
+	      pos := pos + bpw
+	      read.int (pos, work.space)
+	      pos := pos + bpw
+	      code.ptr := bpw * work.space
+	      IF
+		version = 10
+		  SEQ
+		    param.space := 7
+		    read.int (pos, vec.space)
+		    pos := pos + bpw
+		version >= 11
+		  SEQ
+		    param.space := 9
+		    read.int (pos, vec.space)
+		    pos := pos + bpw
+		    read.int (pos, par.stack.space)
+		    pos := pos + bpw
+		    code.ptr := code.ptr + (bpw * par.stack.space)
+		TRUE
+		  param.space := 6
+	      code.ptr := code.ptr + (bpw * param.space)
+	      read.int (pos, entry.point)
+	      pos := pos + bpw
+	      read.int (pos, size)
+	      pos := pos + bpw
+	      success := pos <= bytes.read
+	      --{{{  copy rest of bufferful into code position
+	      len.rest := bytes.read - pos
+	      [code.buffer FROM code.ptr FOR len.rest] :=
+		 [buffer FROM pos FOR len.rest]
+	      code.ptr := code.ptr + len.rest
+	      size.to.come := size - len.rest
+	      --}}}
+	    --}}}
+	--}}}
+	--{{{  error opening
+	TRUE
+	  SEQ
+	    loaded.ok := FALSE
+	    result := fi.file.does.not.exist
+	--}}}
+      IF
+	--{{{  file not opened
+	result <> fi.ok
+	  SKIP
+	--}}}
+	--{{{  ok to read
+	success AND ((code.ptr + size.to.come) < (SIZE code.buffer))
+	  INT32 ferror:
+	  SEQ
+	    so.read (from.isv, to.isv, codefile.strm,
+	      bytes.read, [code.buffer FROM code.ptr FOR size.to.come])
+	    --{{{  handle possible errors
+	    result := fi.ok
+	    so.eof (from.isv, to.isv, codefile.strm, bres)
+	    IF
+	      bres = spr.ok
+		so.write.string.nl (from.isv, to.isv, "Premature eof ")
+	      TRUE
+		[sp.max.writebuffer.size] BYTE errmess:
+		INT em.len:
+		SEQ
+		  so.ferror (from.isv, to.isv, codefile.strm, ferror,
+			     em.len, errmess, bres)
+		  so.write.string.nl (from.isv, to.isv, [errmess FROM 0 FOR em.len])
+		  result := INT ferror
+	    --}}}
+	    code.size := len.rest + bytes.read
+	    loaded.ok := code.size = size
+	    --{{{  close the file
+	    so.close (from.isv, to.isv, codefile.strm, bres)
+	    IF
+	      bres = spr.ok
+		SKIP
+	      TRUE
+		result := fi.file.not.closed
+	    --}}}
+	--}}}
+	--{{{  file too big
+	TRUE
+	  SEQ
+	    success := FALSE
+	    loaded.ok := FALSE
+	    result := fi.file.too.big
+	--}}}
+  :
+  --}}}
+  --{{{  call.pgm
+  PROC call.pgm ([]BYTE work.area, VAL INT stack.len, ws.len, params.len,
+		 code.len, vs.len, entry)
+    INT b.stack.len:
+    SEQ
+      --{{{  compute stack length in bytes
+      IF
+	stack.len >= 0
+	  b.stack.len := stack.len TIMES bpw
+	TRUE
+	  b.stack.len := 0
+      --}}}
+      --{{{  abbreviations etc
+      VAL b.ws.len   IS ws.len TIMES bpw:
+      VAL b.vs.len   IS vs.len TIMES bpw:
+      VAL b.params.len IS params.len TIMES bpw:
+      VAL b.code.len IS (code.len + (bpw - 1)) /\ (BITNOT(bpw-1)):
+      VAL stk.start  IS 0:
+      VAL ws.start   IS stk.start + b.stack.len:
+      VAL p.start    IS ws.start + b.ws.len:
+      VAL c.start    IS p.start + b.params.len:
+      VAL v.start    IS c.start + b.code.len :
+      VAL f.start    IS v.start + b.vs.len :
+      b.workspace    IS [work.area FROM ws.start FOR b.ws.len + b.params.len] :
+      b.codespace    IS [work.area FROM c.start FOR code.len] :
+      b.stackspace   IS [work.area FROM stk.start FOR b.stack.len] :
+      b.vecspace     IS [work.area FROM v.start FOR b.vs.len] :
+      VAL f.len      IS (SIZE work.area) - f.start:
+      []INT freespace RETYPES [work.area FROM f.start FOR f.len] :
+      --}}}
+      SEQ
+	--{{{  load parameters and run the program
+	VAL p.len IS params.len TIMES bpw:
+	SEQ
+	  []INT pspace RETYPES [b.workspace FROM p.start FOR p.len] :
+	  []BYTE b.freespace RETYPES freespace :
+	  SEQ
+	    LOAD.INPUT.CHANNEL (pspace [1], from.isv)
+	    LOAD.OUTPUT.CHANNEL (pspace [2], to.isv)
+	    LOAD.BYTE.VECTOR (pspace [3], b.freespace)
+	    pspace [4] := SIZE freespace
+	    CASE params.len
+	      6  -- no stack, no vector space
+		SKIP
+	      7  -- vector space but no stack
+		LOAD.BYTE.VECTOR (pspace [5], b.vecspace)
+	      9  -- vector space and stack
+		SEQ
+		  LOAD.BYTE.VECTOR (pspace [5], b.stackspace)
+		  []INT stackspace RETYPES b.stackspace:
+		  pspace [6] := SIZE stackspace
+		  LOAD.BYTE.VECTOR (pspace [7], b.vecspace)
+	  []INT workspace RETYPES b.workspace :
+	  CASE params.len
+	    6
+	      KERNEL.RUN (b.codespace, entry, workspace, 4)
+	    7
+	      KERNEL.RUN (b.codespace, entry, workspace, 5)
+	    9
+	      KERNEL.RUN (b.codespace, entry, workspace, 7)
+	--}}}
+  :
+  --}}}
+  --{{{  main
+  --{{{  declarations
+  VAL max.prog.size IS 100000:
+  [max.prog.size]BYTE bigspace:
+  PLACE bigspace IN WORKSPACE:
+  [sp.max.writebuffer.size] BYTE progfile.name:
+  INT pfn.len:
+  INT code.len:
+  INT code.entry.offset:
+  INT ps.len:
+  INT ws.len:
+  INT vs.len:
+  INT stack.len:
+  BOOL prog.loaded:
+  INT target.type:
+  INT fresult:
+  BYTE bres:
+  --}}}
+  SEQ
+    so.write.string (from.isv, to.isv, "Loading code from: ")
+    so.read.echo.line (from.isv, to.isv, pfn.len, progfile.name, bres)
+    load.rxx (from.isv, to.isv, [progfile.name FROM 0 FOR pfn.len], FALSE,
+	  code.len, bigspace, prog.loaded, ws.len, ps.len, vs.len, stack.len,
+	  code.entry.offset, target.type, fresult)
+    IF
+      --{{{  not loaded - message
+      NOT prog.loaded
+	SEQ
+	  so.write.string (from.isv, to.isv, "Failed to load ")
+	  so.write.int (from.isv, to.isv, fresult, 0)
+      --}}}
+      TRUE
+	call.pgm (bigspace, stack.len, ws.len, ps.len,
+		  code.len, vs.len, code.entry.offset)
+    --{{{  conclude
+    so.write.string.nl (from.isv, to.isv,
+			"*c*nProgram run completed - press any key")
+    BYTE bres, bchar:
+    so.getkey (from.isv, to.isv, bchar, bres)
+    so.exit (from.isv, to.isv, sps.success)
+    --}}}
+  --}}}
+:

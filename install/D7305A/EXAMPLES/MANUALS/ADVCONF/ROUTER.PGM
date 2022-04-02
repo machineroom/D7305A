@@ -1,0 +1,115 @@
+-- Include values for router attributes
+#INCLUDE "occonf.inc"
+
+-- Hardware description for specialised sub-system
+
+NODE GENERATE, FILTERA, FILTERB :
+NODE RESULTA, RESULTB, MONITOR :
+EDGE port1, port2 :
+ARC hostarc :
+
+-- The following ARCs are only required when optimising
+ARC GENERATE.TO.FILTERA, GENERATE.TO.FILTERB :
+ARC FILTERA.TO.RESULTA, FILTERB.TO.RESULTB :
+
+NETWORK
+  DO
+    SET GENERATE (type, memsize := "T800",  32*K)
+    SET FILTERA  (type, memsize := "T425", 128*K)
+    SET FILTERB  (type, memsize := "T425", 128*K)
+    SET RESULTA  (type, memsize := "T425", 128*K)
+    SET RESULTB  (type, memsize := "T425", 128*K)
+    SET MONITOR  (type, memsize := "T425",   2*M)
+
+    CONNECT HOST              TO MONITOR[link][1] WITH hostarc
+    CONNECT MONITOR[link][2]  TO RESULTA[link][1]
+    CONNECT MONITOR[link][3]  TO RESULTB[link][0]
+    CONNECT MONITOR[link][0]  TO GENERATE[link][3]
+    CONNECT GENERATE[link][1] TO FILTERA[link][2] WITH
+            GENERATE.TO.FILTERA
+    CONNECT GENERATE[link][2] TO FILTERB[link][1] WITH
+            GENERATE.TO.FILTERB
+    CONNECT RESULTA[link][2]  TO FILTERA[link][1] WITH
+            FILTERA.TO.RESULTA
+    CONNECT RESULTB[link][1]  TO FILTERB[link][2] WITH
+            FILTERB.TO.RESULTB
+    CONNECT RESULTA[link][3]  TO FILTERA[link][0]
+    CONNECT RESULTB[link][3]  TO FILTERB[link][0]
+
+    CONNECT GENERATE[link][0] TO RESULTB[link][2]
+
+    CONNECT FILTERA[link][3]  TO port1
+    CONNECT FILTERB[link][3]  TO port2
+:
+
+-- Software description for filter test program
+
+NODE generate.p, monitor.p :
+[2]NODE result.p, filter.p :
+
+#INCLUDE "hostio.inc"
+#USE "generate.c8h"
+#USE "filter.c5h"
+#USE "result.c5h"
+#USE "monitor.c5h"
+
+CHAN OF SP fs, ts :
+[2]CHAN OF BYTE Out :
+[2]CHAN OF BYTE Filter.to.Res :
+CONFIG
+  [2]CHAN OF BYTE Res :
+  [4]CHAN OF BYTE Cntl :
+  PAR
+    PROCESSOR monitor.p
+      Monitor(fs, ts, Res, Cntl)
+    PROCESSOR generate.p
+      Generate(Out)
+    PAR i = 0 FOR 2
+      PAR
+        PROCESSOR result.p[i]
+          Result(Filter.to.Res[i], Res[i], Cntl[i])
+        PROCESSOR filter.p[i]
+          Filter(Out[i], Filter.to.Res[i], Cntl[i+2])
+:
+
+-- Mapping description
+MAPPING
+  DO
+    MAP generate.p  ONTO GENERATE
+    MAP filter.p[0] ONTO FILTERA
+    MAP filter.p[1] ONTO FILTERB
+    MAP result.p[0] ONTO RESULTA
+    MAP result.p[1] ONTO RESULTB
+    MAP monitor.p   ONTO MONITOR
+
+    MAP fs, ts ONTO hostarc
+
+    -- Mapping optimisation:
+    
+    -- Prevent through routing via GENERATE
+    SET GENERATE (routecost := INFINITE.COST)
+    
+    -- Ensure minimum overhead on FILTERA
+    SET FILTERA (routecost, linkquota := INFINITE.COST, 1)
+    
+    -- Ensure minimum overhead on FILTERB
+    SET FILTERB (routecost, linkquota := INFINITE.COST, 1)
+    
+    -- Optimise Generate to Filter 0 Path
+    MAP Out[0] ONTO GENERATE.TO.FILTERA
+    
+    -- Optimise Generate to Filter 1 Path
+    MAP Out[1] ONTO GENERATE.TO.FILTERB
+    
+    -- Optimise Filter to Result 0 Path
+    MAP Filter.to.Res[0] ONTO FILTERA.TO.RESULTA
+    
+    -- Optimise Filter to Result 1 Path
+    MAP Filter.to.Res[1] ONTO FILTERB.TO.RESULTB
+    
+    -- Use otherwise unspecified linkquotas to check
+    -- overheads on GENERATE, RESULTA, and RESULTB
+    SET GENERATE (linkquota := 0)
+    SET RESULTA  (linkquota := 2)
+    SET RESULTB  (linkquota := 2)
+:

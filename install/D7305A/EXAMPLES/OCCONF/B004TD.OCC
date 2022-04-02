@@ -1,0 +1,54 @@
+#INCLUDE "hostio.inc" --
+PROC TermDriver (CHAN OF SP from.isv, to.isv,
+	   CHAN OF INT from.net,
+	   CHAN OF INT to.net)
+  #USE "hostio.lib"
+  VAL ticks.per.sec IS 15625:     -- T414B
+  VAL timeout IS 6 TIMES ticks.per.sec:
+  VAL pollgap IS ticks.per.sec / 20:
+  SEQ
+    so.write.string.nl (from.isv, to.isv, "B003 test program")
+    to.net ! INT 'c'                     -- tells network to start
+    so.write.string.nl (from.isv, to.isv, "Remote network started")
+    INT ch:
+    TIMER TIME:
+    INT now, then, nextpoll:
+    BOOL going:
+    SEQ
+      TIME ? now
+      nextpoll := now PLUS pollgap
+      then := now PLUS timeout
+      going := TRUE
+      WHILE going
+	SEQ
+	  ALT
+	    from.net ? ch
+	      --{{{   read text from network, string terminated by *N
+	      SEQ
+		WHILE ch <> (INT '*n')
+		  SEQ
+		    so.write.char (from.isv, to.isv, BYTE ch)
+		    from.net ? ch
+		so.write.nl (from.isv, to.isv)
+		TIME ? now
+		nextpoll := now PLUS pollgap
+		then := now PLUS timeout
+	      --}}}
+	    TIME ? AFTER nextpoll
+	      --{{{  look for keystroke
+	      BYTE bkey, bres:
+	      SEQ
+		so.pollkey (from.isv, to.isv, bkey, bres)
+		IF
+		  bres = spr.ok
+		    to.net ! INT bkey
+		  TRUE
+		    SKIP
+		TIME ? now
+		nextpoll := now PLUS pollgap
+	      --}}}
+	    TIME ? AFTER then
+	      going := FALSE
+    so.write.string (from.isv, to.isv, "Remote network idle")
+    so.exit (from.isv, to.isv, sps.success)
+:

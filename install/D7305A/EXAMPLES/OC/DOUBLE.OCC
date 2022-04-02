@@ -1,0 +1,21 @@
+--This passes the usage checker. PRI PAR can be substituted for PAR.
+--The number of blocks in this example is odd, it requires
+--conditional tests for an arbitrary number.
+
+PROC doublebuffer(CHAN OF [100]BYTE in, out)
+  [2][100]BYTE buffer :
+  BOOL running :
+  SEQ
+    running := TRUE
+    in ? buffer[0]
+    WHILE running
+      SEQ
+	PAR
+	  in ? buffer[1]
+	  out ! buffer[0]
+	PAR
+	  in ? buffer[0]
+	  out ! buffer[1]
+	-- running := ?   -- end condition test
+    out ! buffer[0]
+:

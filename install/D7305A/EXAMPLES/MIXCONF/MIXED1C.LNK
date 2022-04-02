@@ -1,0 +1,11 @@
+--
+-- linker indirect file "mixed1c.lnk"
+
+-- Use type 1 entry point:
+#mainentry MAIN.ENTRY
+
+-- This is used to give information for the debugger
+#reference information%module
+
+mixed1c.tco
+#INCLUDE clibs.lnk

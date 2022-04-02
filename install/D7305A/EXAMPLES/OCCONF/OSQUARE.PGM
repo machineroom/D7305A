@@ -1,0 +1,150 @@
+-- This configuration describes a square array with a host interface process
+-- all on a single transputer supported by a host.
+
+--{{{  kilo, mega
+VAL K IS 1024:
+VAL M IS K*K:
+--}}}  
+
+--{{{  Hardware Network description for each on its own processor
+--VAL p IS 10:
+--#INCLUDE "squanet.inc" --squanet.inc Network
+--}}}  
+--{{{  Alternative Network: B003 as a square with p=2
+--#INCLUDE "squab003.inc"
+--}}}  
+--{{{  Mapping for n*n squares
+--#INCLUDE "squamap.inc"
+--}}}  
+
+--{{{  Hardware Network description and mapping for all (5*5) on one processor
+VAL p IS 5:
+
+NODE HostSquare:
+ARC Hostlink:
+NETWORK
+  DO
+    SET HostSquare (type, memsize := "T425", 1*M)
+    CONNECT HOST TO HostSquare[link][0] WITH Hostlink
+:
+--{{{  Mapping
+NODE Hostpass.p:
+[p][p]NODE Multpass.p:
+MAPPING
+  DO
+    MAP Hostpass.p ONTO HostSquare
+    DO i = 0 FOR p
+      DO j = 0 FOR p
+        MAP Multpass.p[i][j] ONTO HostSquare  
+:
+--}}}  
+--}}}  
+
+#INCLUDE "hostio.inc" --
+--{{{  Code
+#USE "hostpass.cah"
+#USE "multpass.cah"
+--}}}  
+CONFIG
+  --{{{  Config program
+  -- Note that each process in the array has four input channels and four
+  -- output channels.
+  -- The Left and Right channels link all processors into one big ring
+  -- The Up and Down channels make a similar ring but with the host processor
+  -- included in the ring above the top left corner processor.
+  -- The host processor is also connected to the HOST.
+  
+  -- Note the use of channel array abbreviations with array constructors
+  -- to pass the inputs and the outputs as arrays to each process.
+  
+  [p][p]CHAN OF INT32 InDownOutUp:
+  [p][p]CHAN OF INT32 InUpOutDown:
+  [p][p]CHAN OF INT32 InRightOutLeft:
+  [p][p]CHAN OF INT32 InLeftOutRight:
+  CHAN OF INT32 HostDownIn: 
+  CHAN OF INT32 HostDownOut:
+  CHAN OF SP HostIn, HostOut:
+  PLACE HostIn, HostOut ON Hostlink:
+  PAR
+    --{{{  [p][p]Multpass.p
+    --{{{  Bottom right corner
+    VAL i IS p-1:
+    VAL j IS p-1:
+    VAL i1 IS 0:
+    VAL j1 IS 0:
+    PROCESSOR Multpass.p[i][j]
+      [4]CHAN OF INT32 Input IS [InUpOutDown[i][j],
+			      InLeftOutRight[i][j],
+			      HostDownOut,
+			      InRightOutLeft[i1][j1]]:
+      [4]CHAN OF INT32 Output IS [InDownOutUp[i][j],
+			       InRightOutLeft[i][j],
+			       HostDownIn,
+			       InLeftOutRight[i1][j1]]:
+      MultPass (Input, Output)
+    --}}}  
+    --{{{  right hand side, not bottom
+    VAL j IS p-1:
+    VAL j1 IS 0:
+    PAR i = 0 FOR p-1
+      VAL i1 IS i+1:
+      --{{{  Multpass (i,j,i1,j1)
+      PROCESSOR Multpass.p[i][j]
+        [4]CHAN OF INT32 Input IS [InUpOutDown[i][j],
+			        InLeftOutRight[i][j],
+			        InDownOutUp[i1][j],
+			        InRightOutLeft[i1][j1]]:
+        [4]CHAN OF INT32 Output IS [InDownOutUp[i][j],
+				 InRightOutLeft[i][j],
+				 InUpOutDown[i1][j],
+				 InLeftOutRight[i1][j1]]:
+        MultPass (Input, Output)
+      --}}}  
+    --}}}  
+    --{{{  bottom, not right end
+    VAL i IS p-1:
+    VAL i1 IS 0:
+    PAR j = 0 FOR p-1
+      VAL j1 IS j+1:
+      --{{{  Multpass (i,j,i1,j1)
+      PROCESSOR Multpass.p[i][j]
+        [4]CHAN OF INT32 Input IS [InUpOutDown[i][j],
+			        InLeftOutRight[i][j],
+			        InDownOutUp[i1][j1],
+			        InRightOutLeft[i][j1]]:
+        [4]CHAN OF INT32 Output IS [InDownOutUp[i][j],
+				 InRightOutLeft[i][j],
+				 InUpOutDown[i1][j1],
+				 InLeftOutRight[i][j1]]:
+        MultPass (Input, Output)
+      --}}}  
+    --}}}  
+    --{{{  not the right and bottom
+    PAR i = 0 FOR p-1
+      PAR j = 0 FOR p-1
+        VAL i1 IS i+1:
+        VAL j1 IS j+1:
+        --{{{  Multpass (i,j,i1,j1)
+        PROCESSOR Multpass.p[i][j]
+	  [4]CHAN OF INT32 Input IS [InUpOutDown[i][j],
+				  InLeftOutRight[i][j],
+				  InDownOutUp[i1][j],
+				  InRightOutLeft[i][j1]]:
+	  [4]CHAN OF INT32 Output IS [InDownOutUp[i][j],
+				   InRightOutLeft[i][j],
+				   InUpOutDown[i1][j],
+				   InLeftOutRight[i][j1]]:
+	  MultPass (Input, Output)
+        --}}}  
+    --}}}  
+    --}}}  
+    --{{{  Hostpass.p
+    PROCESSOR Hostpass.p
+      HostUpOut IS InUpOutDown [0][0]: 
+      HostUpIn  IS InDownOutUp [0][0]:
+      ToHostIn IS [HostDownIn, HostUpIn]:
+      FromHostOut IS [HostDownOut, HostUpOut]:
+      HostPass (HostIn, HostOut, ToHostIn, FromHostOut)
+    --}}}  
+  --}}}  
+:

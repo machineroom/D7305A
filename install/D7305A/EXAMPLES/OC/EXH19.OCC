@@ -1,0 +1,266 @@
+#INCLUDE "hostio.inc" --
+#USE "hostio.lib"
+#USE "string.lib"
+PROC exh19 (CHAN OF SP from.isv, to.isv, []INT freespace)
+  -- This example exercises the PROCs and FUNCTIONs of the strings
+  -- library and includes examples of the use of multi-valued functions
+  [76]BYTE line1, line2:
+  BYTE term:
+  INT len1, len2:
+  INT start, len, shift:
+  BYTE match:
+  BOOL err:
+  BYTE bres:
+  SEQ
+    --{{{  
+    so.write.string.nl(from.isv, to.isv, "A series of exercises using strings library")
+    so.write.string.nl(from.isv, to.isv, "Each section ends if first char becomes *'!*'")
+    so.write.string.nl(from.isv, to.isv, "Enter a line of text ending with *"<RETURN>*"")
+    so.write.string.nl(from.isv, to.isv, " which will be replaced by *'!*'")
+    so.read.echo.line(from.isv, to.isv, len1, line1, bres)
+    so.write.nl (from.isv, to.isv)
+    len1 := len1 + 1
+    line1[len1 - 1] := '!'
+    line2[0] := ' '
+    len2 := len1
+    --{{{  test compare.string
+    INT len, ord:
+    [76]BYTE comp:
+    WHILE comp[0] <> '!'
+      SEQ
+	so.write.string(from.isv, to.isv, "Compare with:")
+	so.read.echo.line(from.isv, to.isv, len, comp, bres)
+	so.write.nl (from.isv, to.isv)
+	len2 := len1
+	ord := compare.strings ([line1 FROM 0 FOR len2],
+				[comp FROM 0 FOR len] )
+	so.write.int(from.isv, to.isv, ord, 2)
+	so.write.nl(from.isv, to.isv)
+    --}}}
+    --{{{  test str.shift
+    so.write.string.nl(from.isv, to.isv, "Test shifting within the string")
+    WHILE line2[0] <> '!'
+      BOOL ierr:
+      SEQ
+	line2 := line1
+	len2 := len1
+	so.write.string(from.isv, to.isv, "start:")
+	so.read.echo.int (from.isv, to.isv, start, ierr)
+	so.write.nl(from.isv, to.isv)
+	so.write.string(from.isv, to.isv, "len:")
+	so.read.echo.int (from.isv, to.isv, len, ierr)
+	so.write.nl(from.isv, to.isv)
+	so.write.string(from.isv, to.isv, "shift:")
+	so.read.echo.int (from.isv, to.isv, shift, ierr)
+	so.write.nl(from.isv, to.isv)
+	str.shift ([line2 FROM 0 FOR len2], start, len, shift, err)
+	so.write.string (from.isv, to.isv, [line2 FROM 0 FOR len2])
+	--{{{  ERR if error
+	IF
+	  err
+	    so.write.string(from.isv, to.isv, "ERR")
+	  TRUE
+	    SKIP
+	--}}}
+	so.write.nl(from.isv, to.isv)
+    --}}}
+    --{{{  test delete.string
+    so.write.string.nl(from.isv, to.isv, "Test deletion within the string")
+    line2[0] := ' '
+    INT num, pos:
+    WHILE line2[0] <> '!'
+      BOOL ierr:
+      SEQ
+	line2 := line1
+	len2 := len1
+	so.write.string(from.isv, to.isv, "Test delete:")
+	so.read.echo.int (from.isv, to.isv, num, ierr)
+	so.write.nl(from.isv, to.isv)
+	so.write.string(from.isv, to.isv, "at:")
+	so.read.echo.int (from.isv, to.isv, pos, ierr)
+	so.write.nl(from.isv, to.isv)
+	delete.string (len2, line2, pos, num, err)
+	so.write.string (from.isv, to.isv, [line2 FROM 0 FOR len2])
+	--{{{  ERR if error
+	IF
+	  err
+	    so.write.string(from.isv, to.isv, "ERR")
+	  TRUE
+	    SKIP
+	--}}}
+	so.write.nl(from.isv, to.isv)
+    --}}}
+    --{{{  test insert.string
+    so.write.string.nl(from.isv, to.isv, "Test insertion within the string")
+    line2[0] := ' '
+    INT len, pos:
+    BYTE bres:
+    [76]BYTE ins:
+    WHILE line2[0] <> '!'
+      BOOL ierr:
+      SEQ
+	line2 := line1
+	len2 := len1
+	so.write.string(from.isv, to.isv, "Test insert:")
+	so.read.echo.line (from.isv, to.isv, len, ins, bres)
+	so.write.nl (from.isv, to.isv)
+	so.write.string(from.isv, to.isv, "at:")
+	so.read.echo.int (from.isv, to.isv, pos, ierr)
+	so.write.nl(from.isv, to.isv)
+	insert.string ([ins FROM 0 FOR len], len2, line2, pos, err)
+	so.write.string (from.isv, to.isv, [line2 FROM 0 FOR len2])
+	--{{{  ERR if error
+	IF
+	  err
+	    so.write.string(from.isv, to.isv, "ERR")
+	  TRUE
+	    SKIP
+	--}}}
+	so.write.nl(from.isv, to.isv)
+    --}}}
+    so.write.string.nl(from.isv, to.isv, "Range tests: *
+     *Enter any text ending with *"<RETURN>*"")
+    so.read.echo.line(from.isv, to.isv, len1, line1, bres)
+    so.write.nl (from.isv, to.isv)
+    --{{{  upper/lower
+    so.write.string.nl(from.isv, to.isv, "Test chars in ranges")
+    --{{{  upper
+    SEQ i = 0 FOR len1
+      IF
+	is.upper(line1[i])
+	  line2[i] := 'U'
+	TRUE
+	  line2[i] := '.'
+    so.write.string.nl(from.isv, to.isv, [line2 FROM 0 FOR len1])
+    --}}}
+    --{{{  lower
+    SEQ i = 0 FOR len1
+      IF
+	is.lower(line1[i])
+	  line2[i] := 'L'
+	TRUE
+	  line2[i] := '.'
+    so.write.string.nl(from.isv, to.isv, [line2 FROM 0 FOR len1])
+    --}}}
+    --{{{  digit
+    SEQ i = 0 FOR len1
+      IF
+	is.digit(line1[i])
+	  line2[i] := 'D'
+	TRUE
+	  line2[i] := '.'
+    so.write.string.nl(from.isv, to.isv, [line2 FROM 0 FOR len1])
+    --}}}
+    --{{{  id.char
+    SEQ i = 0 FOR len1
+      IF
+	is.id.char(line1[i])
+	  line2[i] := 'I'
+	TRUE
+	  line2[i] := '.'
+    so.write.string.nl(from.isv, to.isv, [line2 FROM 0 FOR len1])
+    --}}}
+    --{{{  is.in.range  'A' - 'z'
+    SEQ i = 0 FOR len1
+      IF
+	is.in.range(line1[i], 'A', 'z')
+	  line2[i] := 'A'
+	TRUE
+	  line2[i] := '.'
+    so.write.string.nl(from.isv, to.isv, [line2 FROM 0 FOR len1])
+    --}}}
+    [3]BYTE ins:
+    BYTE bres:
+    SEQ
+      so.write.string.nl(from.isv, to.isv, "Type 2 chars as ends of range:")
+      so.read.echo.line (from.isv, to.isv, len, ins, bres)
+      so.write.nl (from.isv, to.isv)
+      --{{{  is.in.range
+      SEQ i = 0 FOR len1
+	IF
+	  is.in.range(line1[i], ins[0], ins[1])
+	    line2[i] := 'R'
+	  TRUE
+	    line2[i] := '.'
+      so.write.string.nl(from.isv, to.isv, [line2 FROM 0 FOR len1])
+      --}}}
+      so.getkey (from.isv, to.isv, term, bres)
+    --{{{  force UPPER/lower case
+    line2 := line1
+    len2  := len1
+    to.upper.case ([line2 FROM 0 FOR len2])
+    so.write.string.nl(from.isv, to.isv, "Forced UPPER:")
+    so.write.string.nl(from.isv, to.isv, [line2 FROM 0 FOR len2])
+    line2 := line1
+    to.lower.case ([line2 FROM 0 FOR len2])
+    so.write.string.nl(from.isv, to.isv, "Forced lower:")
+    so.write.string.nl(from.isv, to.isv, [line2 FROM 0 FOR len2])
+    --}}}
+    --}}}
+    
+    --{{{  search for match
+    term := ' '
+    WHILE term <> '*c'
+      --{{{  pos
+      SEQ
+	so.write.string(from.isv, to.isv, "Search for match of char: <RETURN> terminates ")
+	so.getkey (from.isv, to.isv, term, bres)
+	so.write.char (from.isv, to.isv, term)
+	start := char.pos (term, [line1 FROM 0 FOR len1])
+	so.write.string(from.isv, to.isv, " start:")
+	so.write.int(from.isv, to.isv, start, 2)
+	so.write.nl(from.isv, to.isv)
+      --}}}
+    len2 := 1
+    WHILE len2 > 0
+      --{{{  string.pos
+      BYTE bres:
+      SEQ
+	so.write.string(from.isv, to.isv,"Search for match of string: <RETURN> terminates ")
+	so.read.echo.line (from.isv, to.isv, len2, line2, bres)
+	so.write.nl (from.isv, to.isv)
+	start := string.pos ([line2 FROM 0 FOR len2], [line1 FROM 0 FOR len1])
+	so.write.string(from.isv, to.isv, " start:")
+	so.write.int(from.isv, to.isv, start, 2)
+	so.write.nl(from.isv, to.isv)
+      --}}}
+    len1 := len1 - 1
+    len2 := 1
+    WHILE len2  > 0
+      --{{{  match
+      BYTE bres:
+      SEQ
+	so.write.string(from.isv, to.isv, "Search for one of: (empty set terminates) ")
+	so.read.echo.line (from.isv, to.isv, len2, line2, bres)
+	so.write.nl (from.isv, to.isv)
+	line1 IS [line1 FROM 0 FOR len1]:
+	line2 IS [line2 FROM 0 FOR len2]:
+	start, match := search.match (line2, line1)
+	so.write.string(from.isv, to.isv, " start:")
+	so.write.int(from.isv, to.isv, start, 2)
+	so.write.char(from.isv, to.isv, match)
+	so.write.nl(from.isv, to.isv)
+      --}}}
+    term := ' '
+    len2 := 1
+    WHILE len2 > 0
+      --{{{  no.match
+      BYTE bres:
+      SEQ
+	so.write.string(from.isv, to.isv, "Search for none of: (empty set terminates) ")
+	so.read.echo.line (from.isv, to.isv, len2, line2, bres)
+	so.write.nl (from.isv, to.isv)
+	line1 IS [line1 FROM 0 FOR len1]:
+	line2 IS [line2 FROM 0 FOR len2]:
+	start, match := search.no.match (line2, line1)
+	so.write.string(from.isv, to.isv, " start:")
+	so.write.int(from.isv, to.isv, start, 2)
+	so.write.char(from.isv, to.isv, match)
+	so.write.nl(from.isv, to.isv)
+      --}}}
+    --}}}
+    BYTE bres, bkey:
+    so.getkey (from.isv, to.isv, bkey, bres)
+    --}}}
+    so.exit (from.isv, to.isv, sps.success)
+:

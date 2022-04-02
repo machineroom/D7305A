@@ -1,0 +1,9 @@
+#INCLUDE "hostio.inc"
+PROC testask(CHAN OF SP fs, ts, []INT mem)
+  #USE "hostio.lib"
+  INT num :
+  SEQ
+    so.ask (fs, ts, "hit a key", "AB", TRUE, TRUE, num)
+    so.write.int (fs, ts, num, 4)
+    so.exit (fs, ts, sps.success)
+:

@@ -1,0 +1,19 @@
+SUBDIRECTORY assert
+
+The example in this subdirectory is referenced in the
+User Manual.
+
+assert.occ	Coding example - asserting reset/analyse, setting error on
+		a B004 or similar.
+
+This example can be compiled for any 32-bit processor by writing:
+
+	imakef assert.tah
+	make -f assert.mak
+
+Or, equivalently:
+
+	oc assert -ta -h -o assert.tah 
+
+When using an MS-DOS or VMS system, replace '-' by '/'
+

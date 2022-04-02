@@ -1,0 +1,62 @@
+#INCLUDE "farmprot.inc"
+PROC application (VAL INT process.no,
+		  CHAN OF WORKPACKET to.app,
+		  CHAN OF RESULTPACKET from.app,
+		  CHAN OF PACKETCOMPLETE back.to.buf)
+
+  --{{{  function posch
+  BYTE FUNCTION posch (VAL INT y,x)
+    INT res:
+    VALOF
+      ----{{{COMMENT COMMENT char depends on x, y
+      ----{{{  char depends on x, y
+      --INT basech:
+      --SEQ
+	--basech := (INT 'A') + y
+	--res := basech + x
+	--IF
+	  --res > 126
+	    --res := res - (126 - 33)
+	  --TRUE
+	    --SKIP
+      ----}}}
+      ----}}}
+      --{{{  char depends on process.no
+      res := (INT'0') + process.no
+      --}}}
+      RESULT (BYTE res)
+  :
+  --}}}
+  --{{{  Variables.
+  BYTE colour:
+  INT xpos,ypos:
+  BOOL running:
+  TIMER time:
+  INT now:
+  --}}}
+
+  SEQ
+    running:=TRUE
+    back.to.buf ! packet.processed
+    WHILE running
+      to.app ? CASE
+	pipepacket;xpos;ypos
+	  --{{{  Process packet.
+	  SEQ
+	    colour := posch(ypos,xpos)
+	    --{{{  wait about 1/10 sec
+	    time ? now
+	    time ? AFTER now PLUS 1500
+	    --}}}
+	    back.to.buf ! packet.processed
+	    from.app ! result.data;xpos;ypos;colour
+	  --}}}
+	init
+	  back.to.buf ! packet.processed
+	terminate.3
+	  --{{{  send terminate.4 and die.
+	  SEQ
+	    from.app ! terminate.4
+	    running:=FALSE
+	  --}}}
+:

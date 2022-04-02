@@ -1,0 +1,102 @@
+------------------------------
+--
+--  Debugger example:  opair  [master.occ, mult.occ]
+--
+--  Two processor debugger example program enabling breakpoints to be set and
+--  jumping down channels between processes on different processors.
+--
+--  Also note the usage of an edge and reserved attribute on master_processor.
+--
+--
+--       Processor 0            Processor 1                 Processor 2
+--
+--           TA                     T805                        T805
+--       ----------          ------------------          ------------------
+--      |          |        |   (memory = 1M)  |        |   (memory = 1M)  |
+--    0 |          | 2    1 |                  | 2    1 |                  |
+--   ---| Debugger |--------| master.processor |--------|  mult.processor  |
+--      |          |        |                  |        |                  |
+--      |          |        | (reserved = 20K) |--|3    |                  |
+--       ----------          ------------------          ------------------
+--
+--
+--    NOTE:
+--       You will probably need to change this file to reflect your hardware.
+--
+--    DEBUGGING NOTE:
+--       When running the debugger on Processor 0 the example program boots down
+--       link 1 of Processor 1.  If you run the program without using the
+--       debugger and do not use iskip to skip over Processor 0, the program
+--       will boot down link 0 of Processor 0.  In order to select the
+--       appropriate configuration for when you are debugging or not, a
+--       configuration constant "debugging" has been introduced.
+--
+
+------------------------------
+
+
+
+--  Configuration Constants  --
+
+VAL debugging IS TRUE :    --  TRUE = debugger present
+
+VAL K IS 1024 :
+VAL M IS K * K :
+
+
+--  Hardware Description  --
+
+NODE master.processor :
+NODE mult.processor :
+
+ARC hostarc :
+ARC connarc :
+
+--  Not used in this example: use monitor page L option to see this edge
+EDGE master.unused.edge :
+
+
+NETWORK
+  DO
+    SET master.processor (type, memsize := "T805", 1 * M)
+    SET mult.processor   (type, memsize := "T805", 1 * M)
+
+    IF
+      debugging    --  debugger uses Processor 0
+        CONNECT master.processor[link][1] TO HOST WITH hostarc
+      TRUE         --  program uses Processor 0
+        CONNECT master.processor[link][0] TO HOST WITH hostarc
+
+    CONNECT master.processor[link][2] TO mult.processor[link][1] WITH connarc
+    CONNECT master.processor[link][3] TO master.unused.edge
+:
+
+
+--  Mapping Description  --
+
+
+MAPPING
+  SET master.processor (reserved := 20 * K)
+:
+
+
+--  Software Description  --
+
+#INCLUDE "hostio.inc"
+#USE     "master.cah"
+#USE     "mult.cah"
+
+CONFIG
+  CHAN OF INT32 connect1, connect2 :
+  PLACE connect1, connect2 ON connarc :
+  CHAN OF SP fs, ts :
+  PLACE fs, ts ON hostarc :
+
+  PAR
+    PROCESSOR master.processor
+      master.entry (fs, ts, connect1, connect2)
+
+    PROCESSOR mult.processor
+      VAL multiplier IS 4 (INT32) :
+      mult.entry (connect2, connect1, multiplier)
+:

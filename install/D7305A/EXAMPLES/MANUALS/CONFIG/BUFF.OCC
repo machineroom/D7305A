@@ -1,0 +1,9 @@
+#INCLUDE "hostio.inc"
+#USE "hostio.lib"
+
+PROC buffer.process(CHAN OF SP fs, ts,
+                    from.app, to.app)
+  CHAN OF BOOL stopper :
+  -- this never terminates
+  so.buffer(fs, ts, from.app, to.app, stopper)
+:

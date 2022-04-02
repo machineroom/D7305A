@@ -1,0 +1,19 @@
+SUBDIRECTORY dynamic
+
+The examples in this subdirectory are those used to demonstrate the use
+of KERNEL.RUN in the Low Level Programming chapter of the user manual.
+
+runcode.inc	PROTOCOL definition for runcode.occ
+runcode.occ	Receive code down a channel; then execute it
+callprog.occ	Call a complicated program with parameters
+
+The runcode example can be compiled as follows
+
+	oc runcode.occ
+
+This callprog example can be built using imakef as follows
+
+	imakef callprog.bah	
+	make -f callprog.mak
+
+When using an MS-DOS or VMS system, replace '-' by '/'

@@ -1,0 +1,57 @@
+SUBDIRECTORY mixconf
+
+This directory contains three examples showing how C code may be called
+directly from the occam configurer in both single and multi-processor
+configurations. These examples use procedures from the library "centry.lib".
+Each program is accompanied by a make file and a linker indirect file as it
+is not straightforward to produce these for multiprocessor mixed language
+programs with imakef. When using the make files the make macro FLAG should
+be defined as / or - according to host.
+
+mixed1.pgm	Single processor program written in C and linked with
+mixed1c.c	MAIN.ENTRY to make it callable from occam configuration code
+mixed1c.lnk
+mixed1.mak
+
+	This example is built by writing:
+	make -f mixed1.mak FLAG=-
+	Or, equivalently:
+	icc mixed1c.c
+	ilink -f mixed1c.lnk -mo mixed1c.mod
+	occonf mixed1.pgm
+	icollect mixed1.cfb -p mixed1.map
+
+
+mixed2.pgm	2 processor program showing communication between C and
+mixed2o.occ	occam processes on two channels in parallel using PROC.ENTRY
+mixed2c.c	Both processes can talk to the server.
+mixed2c.lnk
+mixed2.mak
+
+	This example is built by writing:
+	make -f mixed2.mak FLAG=-
+	Or, equivalently:
+	oc mixed2o.occ -ta -h
+	ilink mixed2o.tco hostio.lib convert.lib -f occama.lnk -mo mixed2o.mod -ta -h
+	icc mixed2c.c
+	ilink -f mixed2c.lnk -mo mixed2c.mod
+	occonf mixed2.pgm
+	icollect mixed2.cfb -p mixed2.map
+
+
+mixed3.pgm	A root process in occam, talking to the server and to another
+mixed3c.c	process on a separate processor which is coded in C and
+mixed3o.occ	called using PROC.ENTRY.RC, which does not treat server
+mixed3c.lnk	channels specially.
+mixed3.mak
+
+	This example is built by writing:
+	make -f mixed3.mak FLAG=-
+	Or, equivalently:
+	oc mixed3o.occ
+	ilink mixed3o.tco hostio.lib convert.lib -f occama.lnk -mo mixed3o.mod
+	icc mixed3c.c
+	ilink -f mixed3c.lnk -mo mixed3c.mod
+	occonf mixed3.pgm
+	icollect mixed3.cfb -p mixed3.map
+

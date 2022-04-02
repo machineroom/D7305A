@@ -1,0 +1,12 @@
+-- V1.00
+
+-- Dummy structure for PROC Result
+
+PROC Result( CHAN OF BYTE In, Out, Cntl )
+  PAR
+    BYTE Tag :
+    In ? Tag
+    BYTE Tag :
+    Cntl ? Tag
+    Out ! 0 (BYTE)
+:

@@ -1,0 +1,45 @@
+------------------------------
+--
+--  Debugger example:  modify.occ
+--
+--  Example of modifying variables when
+--  breakpoint debugging.
+--
+------------------------------
+
+
+#INCLUDE "hostio.inc"
+#USE     "hostio.lib"
+#USE     "debug.lib"
+
+
+PROC modify.entry (CHAN OF SP fs, ts, []INT free.memory)
+
+  PROC modify ()
+    BOOL    bool :
+    INT16   int16 :
+    INT     int :
+    INT32   int32 :
+    INT64   int64 :
+    BYTE    byte :
+    REAL32  real32 :
+    REAL64  real64 :
+    [5]BYTE string :
+    SEQ
+      bool   := TRUE
+      int16  := 1234    (INT16)
+      int    := 12345
+      int32  := 123456  (INT32)
+      int64  := 1234567 (INT64)
+      byte   := 'a'
+      string := "hello"
+      real32 := 3.14159265 (REAL32)
+      real64 := 3.14159265 (REAL64)
+
+      DEBUG.STOP ()    --  <==  Debugger locates here
+  :
+
+  SEQ
+    modify ()
+    so.exit (fs, ts, sps.success)
+:

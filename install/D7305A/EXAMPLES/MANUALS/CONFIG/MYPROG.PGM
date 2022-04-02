@@ -1,0 +1,37 @@
+VAL number.of.processors IS 1 : -- 1 when running,
+                                -- 2 for developing
+NODE root, application :
+ARC hostlink, rootlink :
+NETWORK
+  DO
+    IF
+      number.of.processors = 2
+        DO
+          SET root (type, memsize := "T414", #100000)
+          CONNECT root[link][0] TO HOST WITH hostlink
+          CONNECT root[link][3] TO
+            application[link][0] WITH rootlink
+      TRUE
+        CONNECT application[link][0] TO HOST WITH
+          rootlink
+    SET application(type, memsize := "T414", #100000)
+:
+#INCLUDE "hostio.inc"
+#USE "app.cah"
+#USE "buff.cah"
+CONFIG
+  CHAN OF SP fs, ts :
+  PLACE fs, ts ON rootlink : -- Note that this is
+  -- 'rootlink', not 'hostlink'
+  PAR
+    IF
+      number.of.processors = 2
+        CHAN OF SP fs0, ts0 :
+        PLACE fs0, ts0 ON hostlink :
+        PROCESSOR root
+          buffer.process(fs0, ts0, ts, fs)
+      TRUE
+        SKIP
+    PROCESSOR application
+      application.process(fs, ts)
+:

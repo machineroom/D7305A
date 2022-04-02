@@ -1,0 +1,79 @@
+-- assert.occ
+-- Example file for INMOS occam toolset
+--
+-- History
+-- V1.00 20/10/92  -- copied from Dx205A toolset
+-- V1.01 02/11/92  -- updated PLACEments
+-- V1.02 09/11/92  -- Used PORT for test.error.pin; removed hostio.inc
+
+VAL fraction.of.a.second.to.delay IS 10 :
+-- IE 1/10th of a second for each assert / deassert
+
+--{{{  assert.subsystem  -- used by those below
+PROC assert.subsystem (VAL BOOL analyse.not.reset, VAL INT one.second)
+
+  --{{{  PROC delay ()
+  PROC delay ()
+    TIMER time :
+    INT   now :
+    SEQ
+      time ? now
+      time ? AFTER now PLUS (one.second / fraction.of.a.second.to.delay)
+  :
+  --}}}  
+  --{{{  reset B004 subsystem (PORTs)
+  --{{{  B004 subsystem constants
+  PORT OF BYTE subsystem.reset, subsystem.analyse :
+  PLACE subsystem.reset   AT #20000000 :
+  PLACE subsystem.analyse AT #20000001 :
+  
+  VAL   assert            IS   1(BYTE) :
+  VAL   de.assert         IS   0(BYTE) :
+  VAL   error.set         IS   1(BYTE) :
+  --}}}  
+  SEQ
+    subsystem.analyse         ! de.assert
+    subsystem.reset           ! de.assert
+    delay ()
+    IF
+      analyse.not.reset
+        SEQ
+	  subsystem.analyse   ! assert
+	  delay ()
+      TRUE
+        SKIP
+    subsystem.reset           ! assert
+    delay ()
+    subsystem.reset           ! de.assert
+    delay ()
+    subsystem.analyse         ! de.assert
+    delay ()
+  --}}}  
+:
+--}}}  
+--{{{  assert.analyse
+PROC assert.analyse (VAL INT one.second)
+  VAL analyse.not.reset IS TRUE :
+  assert.subsystem (analyse.not.reset, one.second)
+:
+--}}}  
+--{{{  assert.reset
+PROC assert.reset (VAL INT one.second)
+  VAL analyse.not.reset IS FALSE :
+  assert.subsystem (analyse.not.reset, one.second)
+:
+--}}}  
+--{{{  test.error.pin
+PROC test.error.pin(BOOL errorset)
+
+  -- Returns TRUE if error set, FALSE otherwise.
+
+  VAL error.set IS 1 :
+  PORT OF BYTE subsystem.error :
+  PLACE subsystem.error AT #20000000 :
+  BYTE error :
+  SEQ
+    subsystem.error ? error
+    errorset := ( ((INT error) /\ error.set) = error.set )
+:
+--}}}  

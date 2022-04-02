@@ -1,0 +1,33 @@
+INT32 FUNCTION ocfunc1 (VAL INT32 parm1) IS parm1:
+
+PROC ocproc1 (VAL BYTE vb,
+	      VAL INT16 vi16,
+	      VAL INT32 vi32,
+	      VAL INT vi,
+	      VAL REAL32 vr32,
+	      VAL REAL64 vr64,
+	      VAL BOOL vbo,
+	      VAL []INT varr1,
+	      VAL [8]INT varr2,
+	      BYTE b,
+	      INT16 i16,
+	      INT32 i32,
+	      INT i,
+	      REAL32 r32,
+	      REAL64 r64,
+	      BOOL bo,
+	      []INT arr1,
+	      [8]INT arr2)
+  --{{{  assignments
+  SEQ
+    b := vb
+    i16 := vi16
+    i32 := vi32
+    i := vi
+    r32 := vr32
+    r64 := vr64
+    bo := vbo
+    arr1 := varr1
+    arr2 := varr2
+  --}}}  
+:

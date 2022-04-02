@@ -1,0 +1,18 @@
+SUBDIRECTORY: manuals
+
+This directory contains various other subdirectories,
+each of which contains an example used in the user documentation.
+
+A very basic occam program and configuration can be found in `simple'.
+A more complex fully worked example can be found in `sorter'.
+
+advconf		Advanced use of the configurer
+assert		Asserting subsystem analyse and reset
+config		Some configurer examples using IF
+dynamic		Dynamic code loading examples from Low Level Programming
+idebug		Worked examples using the idebug debugger
+simple		The simple example from Getting Started
+sorter		The sorter example; for single and multiple processors
+mixed		Mixed language examples
+mux		Multiplexor example from Host Services chapter
+userboot	User bootstraps

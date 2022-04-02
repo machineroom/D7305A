@@ -1,0 +1,67 @@
+-- Occam source file "master.occ"
+
+#INCLUDE "hostio.inc"
+
+PROC the.main.process (CHAN OF SP fs, ts, []INT free.memory)
+  #USE "hostio.lib"
+
+  --{{{  PROTOCOL talk.to.c
+  -- This is the protocol which we use to talk to the C program.
+  -- We informally define it to be:
+  -- 'a length as an INT, then that number of bytes'
+  PROTOCOL talk.to.c IS ANY :
+  --}}}
+
+  --{{{  PROC the.C.process
+  PROC the.C.process (CHAN OF talk.to.c c.in, c.out, []INT free.memory)
+    #USE "centry.lib"       -- contains C predefines for types 1,2 and 3
+    VAL boss    IS 2:              -- index to channels for C process to use
+    VAL flag    IS 1:              -- combine stack, heap and workspace
+    [boss + 1]INT in, out:         -- pointers to channels
+    [1]INT dummy:                  -- unused parameter for separate heapspace
+    SEQ
+      LOAD.INPUT.CHANNEL  (in[boss],  c.in)
+      LOAD.OUTPUT.CHANNEL (out[boss], c.out)
+  
+      PROC.ENTRY.RC (flag,         -- call the type-3 C program
+                     free.memory,  -- workspace heapspace and stack
+                     dummy,        -- not used when flag set to 1
+                     in, out)      -- channel vectors in C parameters
+  :
+  --}}}
+  --{{{  PROC an.occam.process.that.runs.the.server
+  PROC an.occam.process.that.runs.the.server (CHAN OF SP fs, ts,
+                                              CHAN OF talk.to.c from.c, to.c)
+    [80]BYTE results:
+    VAL data IS "these are the bytes that comprise a vector":
+    INT len:
+    SEQ
+      so.write.string.nl (fs, ts, "Master: Sending a byte vector to C with values :-")
+      so.write.string.nl (fs, ts, data)
+  
+      --{{{  pass data to the C program
+      to.c ! SIZE data
+      to.c ! data
+      
+      from.c ? len
+      from.c ? [results FROM 0 FOR len]
+      --}}}
+  
+      so.write.string.nl (fs, ts,"Master: Received data back with values :-")
+      so.write.string.nl (fs, ts, [results FROM 0 FOR len])
+  :
+  --}}}
+  SEQ
+    so.write.string.nl (fs, ts, "Occam: Here we are in occam world")
+    so.write.string.nl (fs, ts, "Occam: Let*'s talk to a sociable C program")
+
+    CHAN OF talk.to.c from.c, to.c:
+    PAR
+      the.C.process    (to.c, from.c, free.memory)
+      an.occam.process.that.runs.the.server (fs, ts, from.c, to.c)
+
+    so.write.string.nl (fs, ts, "Occam: The End")
+    so.exit (fs, ts, sps.success)
+:
+
+-- End of file "master.occ"

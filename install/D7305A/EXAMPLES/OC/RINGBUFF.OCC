@@ -1,0 +1,41 @@
+PROC ring.buffer(CHAN OF INT in, out)
+  VAL max IS 256 :                     -- max buffer size
+  CHAN OF BOOL signal :
+  CHAN OF INT more :
+  PAR
+    --{{{  input process and buffer
+    [max] INT buffer :
+    INT the.front, back :
+    BOOL running :
+    SEQ
+      the.front := 0
+      back := 0
+      running := TRUE
+      WHILE running OR (the.front <> back)
+	INT new.front:
+	SEQ
+	  VAL INT front IS (the.front+1) \ max :
+	  BOOL any:
+	  ALT
+	    (the.front <> back) & signal ? any -- signal for more
+	      SEQ
+		more ! buffer [back]           -- send next
+		running := buffer[back] <> (INT '~') -- end condition test
+		back := (back+1) \ max
+	    (front <> back)     & in  ? buffer[the.front]
+	      new.front := front
+	  the.front := new.front
+    --}}}
+    --{{{  output process
+    INT datum :
+    BOOL running :
+    SEQ
+      running := TRUE
+      WHILE running
+	SEQ
+	  signal ! TRUE
+	  more ? datum
+	  out ! datum
+	  running := datum <> (INT '~')
+    --}}}
+:

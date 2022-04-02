@@ -1,0 +1,8 @@
+-- The smallest occam program which terminates.
+
+#INCLUDE "hostio.inc"
+#USE "hostio.lib"
+
+PROC nullprog(CHAN OF SP fs, ts, []INT free)
+  so.exit(fs, ts, sps.success)
+:

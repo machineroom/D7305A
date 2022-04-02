@@ -1,0 +1,95 @@
+#OPTION "G"  -- enable code insertion
+#INCLUDE "hostio.inc"
+PROC write.free.space (CHAN OF SP from.isv, to.isv, []INT freespace)
+  -- This program fills freespace with SETERR instructions and then
+  -- overwites the region from Memstart to the beginning of freespace
+  -- with a block move from the beginning of freespace.
+  -- It is intended for use when it is desired to set the whole of user
+  -- space to a known value, e.g. to ensure parity is set on a B004
+  -- or to investigate an uninitialised variable problem.
+  -- A precompiled bootable program (standard hosted procedure)
+  -- derived from this is in \tds3\system\wrfree.b4
+  #USE "hostio.lib"
+  VAL val.to.write IS #F021F021: -- two SETERR instructions
+  INT start, top, nextstart:
+  INT blksize:
+  INT freebase:
+  SEQ
+    --{{{  say what we are about to do
+    []BYTE b.freespace RETYPES freespace:
+    SEQ
+      LOAD.BYTE.VECTOR (freebase, b.freespace)
+      so.write.string (from.isv, to.isv,
+		       "About to write SETERR instructions to ")
+      so.write.hex.int (from.isv, to.isv, SIZE b.freespace, 8)
+      so.write.string (from.isv, to.isv, " bytes of memory from ")
+      so.write.hex.int (from.isv, to.isv, freebase, 8)
+      so.write.nl (from.isv, to.isv)
+    --}}}
+    freespace[0] := val.to.write
+    --{{{  init
+    start := 0
+    nextstart := 1
+    blksize := 1
+    top := 2
+    --}}}
+    --{{{  copy blocks doubling size until off the top
+    WHILE top <= (SIZE freespace)
+      SEQ
+	[freespace FROM nextstart FOR blksize] :=
+	  [freespace FROM start FOR blksize]
+	nextstart := top
+	blksize := 2 TIMES blksize
+	top := nextstart + blksize
+    --}}}
+    --{{{  final block as big as needed
+    blksize := (SIZE freespace) - nextstart
+    [freespace FROM nextstart FOR blksize] :=
+      [freespace FROM start FOR blksize]
+    --}}}
+    --{{{  finally overwrite the program
+    VAL Memstart IS #80000048:
+    VAL progsize IS (freebase MINUS Memstart):
+    [10000]BYTE progspace:
+    PLACE progspace AT (Memstart><#80000000)>>2:
+    []BYTE b.freespace RETYPES freespace:
+    INT start, len:
+    TIMER time:
+    INT now:
+    SEQ
+      so.write.nl (from.isv, to.isv)
+      IF
+	--{{{  free space smaller than program
+	(SIZE b.freespace) < progsize
+	  SEQ
+	    start := progsize MINUS (SIZE b.freespace)
+	    len := SIZE b.freespace
+	    so.write.string.nl (from.isv, to.isv,
+	     "Free space smaller than program - overwriting end of program only")
+	--}}}
+	--{{{  free space bigger than program
+	TRUE
+	  SEQ
+	    start := 0
+	    len := progsize
+	    so.write.string (from.isv, to.isv,
+	     "Overwriting program: ")
+	--}}}
+      so.write.hex.int (from.isv, to.isv, len, 8)
+      so.write.string (from.isv, to.isv, " bytes of memory from:")
+      so.write.hex.int (from.isv, to.isv, Memstart, 8)
+      so.write.nl (from.isv, to.isv)
+    
+      --{{{  wait a second to let the message out
+      time ? now
+      time ? AFTER now PLUS 15000 -- let the message through
+      --}}}
+      [progspace FROM start FOR len] := [b.freespace FROM 0 FOR len]
+      --{{{  allow for instruction prefetch
+      ASM
+	SETERR
+	SETERR
+      --}}}
+      so.exit (from.isv, to.isv, sps.success) -- should never be executed!
+    --}}}
+:

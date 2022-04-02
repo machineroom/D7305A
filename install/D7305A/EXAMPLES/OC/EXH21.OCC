@@ -1,0 +1,245 @@
+#OPTION "W"
+#INCLUDE "streamio.inc" --
+#INCLUDE "hostio.inc" --
+#USE "hostio.lib"
+PROC sch21 (CHAN OF SP from.isv, to.isv, []INT freespace)
+  [st.max.string.size]BYTE text:
+  INT tlen, ptype:
+  BYTE brev, bres, bkey:
+  --{{{  processor type constants etc
+  --{{{  Processor types
+  VAL t.T212   IS 0 :
+  VAL t.T414   IS 1 :
+  VAL t.T800   IS 2 :
+  VAL t.T222   IS 3 :
+  VAL t.T425   IS 4 :
+  VAL t.T801   IS 5 :
+  VAL t.M212   IS 6 :
+  VAL t.T805   IS 7 :
+  VAL tx.T225  IS 8 :
+  VAL tx.T400  IS 9 :
+  VAL tx.types IS 10 :
+  --}}}  
+  --{{{  processor type names
+  VAL processor.type.names IS
+  [    "T212",    "T414",    "T800",    "T222",    "M212",    "T801",   "T425",
+       "T805",    "T225",    "T400"]:
+  --}}}  
+  --{{{  Values returned by lddevid
+  -- The new lddevid (load device id) instruction pushes a value into Areg
+  -- (For all processors from T425A onwards)
+  -- On a T414A/B, T212A, T222C, it is a NOP
+  -- On a T800B/C/D/E, it pops Creg into Breg
+  
+  -- The devid consists of two fields;
+  -- the 'tens' digit is the device part number (eg T425, T805)
+  -- the 'units' digit is the revision ('a' to 'j')
+  
+  -- Here, -1 means a special case
+  
+  VAL [tx.types]INT tx.devid.tens IS
+  [       -1,        -1,        -1,        -1,         -2,         2,       0,
+	   1,         4,         5] :
+  --}}}  
+  VAL tx.other IS  11 :
+  --}}}  
+  --{{{  PROC determine.processor.type
+  PROC determine.processor.type (INT tx.type, BYTE rev)
+    --{{{  how this works
+    -- The newer transputers have an instruction LDDEVID (load device id)
+    -- which loads a unique number into Areg.
+    -- The older transputers behave as follows when given this instruction:
+    
+    -- T414a, T414b, T212a, T222c, M212  -- No op
+    -- T800b, T800c, T800d, T800e, etc   -- Areg undefined, Breg := Creg
+    -- T425.., T805.., T801.., T222d..   -- LDDEVID
+    
+    -- Hence we can discover the processor type by loading appropriate values
+    -- into the registers, then testing them after the LDDEVID instruction
+    
+    --Before:     Areg = 0, Breg = 1, Creg = 2
+    --then        LDDEVID
+    
+    --After:      T414a/b  ||  T800b/c/d/e  ||  T425a or later
+    --Areg          0      ||    undef      ||  device ID
+    --Breg          1      ||      2        ||     0
+    --Creg          2      ||    undef      ||     1
+    
+    -- So, we look at Breg.  If zero, look in Areg for the device ID
+    -- If Breg = 1, its a T414a or T414b.
+    -- If Breg = 2, its a T800b,c,d, or e.
+    --}}}  
+    --{{{  the device id values for processors which have them
+    -- The value returned by LDDEVID consists of two fields;
+    -- the 'tens' digit indicates the device part number (eg T425)
+    -- the 'units' digit indicates the revision (eg 'a')
+    --}}}  
+    INT Areg, Breg :
+    SEQ
+      rev := ' ' --default
+      --{{{  set up the registers, do a LDDEVID, then store Areg and Breg
+      ASM
+	LDC 2
+	LDC 1
+	LDC 0
+      
+	-- NOW Areg=0, Breg=1, Creg=2
+      
+	-- OPR #17C   --
+	LDDEVID
+      
+	STL Areg
+	STL Breg
+	-- forget Creg
+      --}}}  
+  
+      CASE Breg
+	0   -- LDDEVID worked OK
+	  --{{{  look at the DEVID value
+	  IF
+	    VAL this.devid.tens IS Areg / 10 :
+	    VAL this.devid.units IS Areg \ 10 :
+	    IF tx.type.i = 0 FOR SIZE tx.devid.tens
+	      this.devid.tens = tx.devid.tens [tx.type.i]
+		SEQ
+		  tx.type := tx.type.i
+		  rev := BYTE ((INT'A') + this.devid.units)
+	    TRUE
+	      tx.type := tx.other
+	  --}}}  
+	1   -- LDDEVID was a NOP
+	  tx.type := t.T414
+	ELSE  -- 2
+	  tx.type := t.T800
+  :
+  --}}}  
+  --{{{  PROC show.env.var
+  PROC show.env.var (VAL[]BYTE env.var)
+    SEQ
+      so.write.string (from.isv, to.isv, env.var)
+      so.getenv (from.isv, to.isv, env.var, tlen, text, bres)
+      IF
+	bres = spr.ok
+	  SEQ
+	    so.write.string (from.isv, to.isv, " is ")
+	    so.write.string.nl (from.isv, to.isv, [text FROM 0 FOR tlen])
+	TRUE
+	  so.write.string.nl (from.isv, to.isv, " Not defined")
+  :
+  --}}}  
+  SEQ
+    --{{{  say what kind of transputer we are using
+    determine.processor.type (ptype, brev)
+    so.write.string (from.isv, to.isv,
+		    "This program is running on a transputer of ")
+    IF
+      ptype >= tx.types
+	so.write.string.nl (from.isv, to.isv, "unknown type")
+      TRUE
+	SEQ
+	  so.write.string (from.isv, to.isv, "type ")
+	  so.write.string (from.isv, to.isv, processor.type.names[ptype])
+	  so.write.char (from.isv, to.isv, brev)
+	  so.write.nl (from.isv, to.isv)
+    --}}}  
+    --{{{  server version
+    BYTE version, host, os, board:
+    SEQ
+      so.version (from.isv, to.isv, version, host, os, board)
+      so.write.string (from.isv, to.isv, "ISERVER version: ")
+      so.write.int (from.isv, to.isv, INT version, 0)
+      --{{{  host
+      CASE host
+	sph.PC
+	  so.write.string (from.isv, to.isv, " PC ")
+	sph.NECPC
+	  so.write.string (from.isv, to.isv, " NEC PC ")
+	sph.VAX
+	  so.write.string (from.isv, to.isv, " VAX ")
+	sph.SUN3
+	  so.write.string (from.isv, to.isv, " SUN3 ")
+	--{{{  COMMENT COMMENT SUN4 ?
+	--{{{  
+	--sph.SUN4
+	  --so.write.string (from.isv, to.isv, " SUN4 ")
+	--}}}  
+	--}}}  
+	ELSE 
+	  SEQ
+	    so.write.string (from.isv, to.isv, " unknown host ")
+	    so.write.int (from.isv, to.isv, INT host, 0)
+      --}}}  
+      --{{{  os
+      CASE os
+	spo.DOS
+	  so.write.string (from.isv, to.isv, " DOS ")
+	spo.HELIOS
+	  so.write.string (from.isv, to.isv, " HELIOS ")
+	spo.VMS
+	  so.write.string (from.isv, to.isv, " VMS ")
+	spo.SUNOS
+	  so.write.string (from.isv, to.isv, " SUNOS ")
+	ELSE 
+	  so.write.string (from.isv, to.isv, " unknown OS ")
+      --}}}  
+      --{{{  board
+      CASE board
+	spb.B004
+	  so.write.string (from.isv, to.isv, " B004 ")
+	spb.B008
+	  so.write.string (from.isv, to.isv, " B008 ")
+	spb.B010
+	  so.write.string (from.isv, to.isv, " B010 ")
+	spb.B011
+	  so.write.string (from.isv, to.isv, " B011 ")
+	spb.B014
+	  so.write.string (from.isv, to.isv, " B014 ")
+	ELSE 
+	  so.write.string (from.isv, to.isv, " other board type ")
+      --}}}  
+    --}}}  
+    --{{{  environment variables
+    so.write.nl (from.isv, to.isv)
+    so.write.string.nl (from.isv, to.isv, "Toolset environment variables:")
+    show.env.var ("ISEARCH")
+    show.env.var ("ITERM")
+    show.env.var ("IBOARDSIZE")
+    show.env.var ("IDEBUGSIZE")
+    show.env.var ("TRANSPUTER")
+    --}}}  
+    --{{{  command line (as passed through by iserver)
+    so.write.nl (from.isv, to.isv)
+    so.commandline (from.isv, to.isv, sp.short.commandline, tlen, text, bres)
+    so.write.string.nl (from.isv, to.isv, "Short command line is:")
+    so.write.string.nl (from.isv, to.isv, [text FROM 0 FOR tlen])
+    so.commandline (from.isv, to.isv, sp.whole.commandline, tlen, text, bres)
+    so.write.string.nl (from.isv, to.isv, "Whole command line is:")
+    so.write.string.nl (from.isv, to.isv, [text FROM 0 FOR tlen])
+    so.write.nl (from.isv, to.isv)
+    --}}}  
+    --{{{  date
+    time.string IS [text FROM 0 FOR so.time.string.len]:
+    SEQ
+      so.today.ascii (from.isv, to.isv, TRUE, TRUE, time.string)
+      so.write.string (from.isv, to.isv, "Today (as determined by a C*
+					 * program on the host) is: ")
+      so.write.string.nl (from.isv, to.isv, time.string)
+    --}}}  
+    --{{{  echo the keyboard
+    so.write.nl (from.isv, to.isv)
+    so.write.string.nl (from.isv, to.isv, "Type keys to show their codes - q to quit")
+    so.getkey (from.isv, to.isv, bkey, bres)
+    WHILE (bres = spr.ok) AND (bkey <> 'q')
+      SEQ
+	so.write.int (from.isv, to.isv, INT bkey, 0)
+	so.write.char (from.isv, to.isv, ' ')
+	so.getkey (from.isv, to.isv, bkey, bres)
+    so.write.nl (from.isv, to.isv)
+    so.write.string (from.isv, to.isv, "Terminated, result =")
+    so.write.int (from.isv, to.isv, INT bres, 0)
+    so.write.nl (from.isv, to.isv)
+    --}}}  
+    --{{{  exit
+    so.exit (from.isv, to.isv, 100(INT32))
+    --}}}  
+:

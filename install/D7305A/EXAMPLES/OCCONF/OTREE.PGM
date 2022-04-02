@@ -1,0 +1,54 @@
+--{{{  kilo, mega
+VAL K IS 1024:
+VAL M IS K*K:
+--}}}
+--{{{  Network description
+[4]NODE Tree:
+ARC HostLink:
+NETWORK
+  DO
+    DO i = 0 FOR 4
+      SET Tree[i] (type, memsize := "T800", 1*M)
+    CONNECT Tree[0][link][0] TO HOST WITH HostLink
+    CONNECT Tree[0][link][2] TO Tree[1][link][1]
+    CONNECT Tree[0][link][3] TO Tree[3][link][0]
+    CONNECT Tree[1][link][2] TO Tree[2][link][1]
+:
+--}}}
+#INCLUDE "hostio.inc" --
+--{{{  Code
+#USE "hostpass.cah"
+#USE "multpass.cah"
+--}}}
+--{{{  Mapping
+NODE HostPass.p:
+[4]NODE MultPass.p:
+MAPPING
+  DO
+    MAP HostPass.p ONTO Tree[0]
+    MAP MultPass.p[0], MultPass.p[2] ONTO Tree[1]
+    MAP MultPass.p[1] ONTO Tree[2]
+    MAP MultPass.p[3] ONTO Tree[3]
+:
+--}}}
+CONFIG
+  --{{{  Software description
+  CHAN OF SP HostInput, HostOutput:
+  PLACE HostInput, HostOutput ON HostLink:
+  
+  --{{{  5 logical processor configuration
+  [2]CHAN OF INT32 c:
+  [2]CHAN OF INT32 d:
+  CHAN OF INT32 e:
+  CHAN OF INT32 f:
+  PAR
+    PROCESSOR HostPass.p
+      HostPass (HostInput, HostOutput, c, d)
+    mp.inputs IS [d[0], e, f, d[1]]:
+    mp.outputs IS [e,f,c[0], c[1]]:
+    PAR i = 0 FOR 4
+      PROCESSOR MultPass.p[i]
+	MultPass ([mp.inputs[i]], [mp.outputs[i]])
+  --}}}
+  --}}}
+:
